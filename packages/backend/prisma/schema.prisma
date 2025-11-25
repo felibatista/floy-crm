@@ -1,0 +1,280 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- ADMIN / STAFF USERS ---
+
+model User {
+  id            String   @id @default(uuid())
+  name          String
+  email         String   @unique
+  passwordHash  String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  groups        Group[]
+}
+
+model Group {
+  id          String   @id @default(uuid())
+  name        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+  permissions GroupPermission[]
+}
+
+model Permission {
+  id          String   @id @default(uuid())
+  name        String
+  code        String   @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  groupPermissions GroupPermission[]
+}
+
+model GroupPermission {
+  id           String   @id @default(uuid())
+  createdAt    DateTime @default(now())
+  groupId      String
+  permissionId String
+
+  group        Group      @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, permissionId])
+}
+
+// --- CRM CORE ---
+
+enum LeadStatus {
+  new
+  contacted
+  qualified
+  converted
+  lost
+}
+
+model Lead {
+  id              String   @id @default(uuid())
+  name            String
+  email           String?
+  phone           String?
+  company         String?
+  status          LeadStatus   @default(new)
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Client {
+  id              String   @id @default(uuid())
+  name            String
+  email           String?  @unique
+  phone           String?
+  company         String?
+  address         String?
+  
+  // Portal Configuration
+  slug            String   @unique // Subdomain: defender, acme
+  domain          String?  @unique // Custom domain: portal.defender.com
+  isPortalEnabled Boolean  @default(false)
+  passwordHash    String?  // Master password for the portal
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  projects        Project[]
+  tickets         Ticket[]
+
+  @@map("cliente")
+}
+
+enum ProjectStatus {
+  active
+  paused
+  completed
+  cancelled
+}
+
+model Project {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  clientId    String
+  status      ProjectStatus   @default(active)
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  client      Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  tasks       Task[]
+  payments    Payment[]
+  files       File[]
+  servers     Server[]
+}
+
+enum TicketPriority {
+  low
+  medium
+  high
+  urgent
+}
+
+enum TicketStatus {
+  open
+  in_progress
+  resolved
+  closed
+}
+
+model Ticket {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  clientId    String
+  priority    TicketPriority    @default(medium)
+  status      TicketStatus      @default(open)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  client      Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  tasks       Task[]
+}
+
+enum TaskStatus {
+  cancelled
+  completed
+  in_progress
+  pending
+}
+
+enum TaskPriority {
+  low
+  medium
+  high
+  urgent
+}
+
+model Task {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  projectId   String
+  ticketId    String?
+  status      TaskStatus @default(pending)
+  priority    TaskPriority @default(medium)
+  startDate   DateTime?
+  endDate     DateTime?
+  timeEstimated String?
+  timeSpent     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  includeInChangeLog Boolean  @default(false)
+
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  ticket      Ticket?  @relation(fields: [ticketId], references: [id])
+  commits     Commit[]
+}
+
+model Commit {
+  id          String   @id @default(uuid())
+  taskId      String
+  message     String
+  author      String
+  hash        String?
+  repository  String?
+  createdAt   DateTime @default(now())
+
+  task        Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+enum PaymentStatus {
+  pending
+  processed
+  completed
+  failed
+}
+
+model Payment {
+  id            String   @id @default(uuid())
+  projectId     String
+  amount        Decimal  @db.Decimal(10, 2)
+  currency      String   @default("ARS")
+  concept       String?
+  paymentMethod String?
+  status        PaymentStatus @default(pending)
+  fechaPago     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  invoices      Invoice[]
+}
+
+enum InvoiceStatus {
+  payed
+  unpaid
+  overdue
+  canceled
+}
+
+model Invoice {
+  id             String   @id @default(uuid())
+  paymentId      String
+  invoiceNumber  String   @unique
+  amount         Decimal  @db.Decimal(10, 2)
+  currency       String   @default("ARS")
+  emitted        DateTime @default(now())
+  expiresAt      DateTime?
+  status         InvoiceStatus @default(unpaid)
+  link           String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  payment        Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+}
+
+model File {
+  id          String   @id @default(uuid())
+  projectId   String
+  name        String
+  url         String
+  type        String?
+  size        Int?
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+enum ServerStatus {
+  active
+  inactive
+  maintenance
+}
+
+model Server {
+  id          String   @id @default(uuid())
+  projectId   String
+  name        String
+  type        String?
+  ip          String?
+  domain      String?
+  provider    String?
+  status      ServerStatus @default(active)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
