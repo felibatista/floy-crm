@@ -278,3 +278,13 @@ model Server {
 
   project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
+
+model Setting {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique
+  value       String
+  description String?
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

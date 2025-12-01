@@ -13,6 +13,8 @@ router.get("/health", (req: Request, res: Response) => {
 });
 
 import clientsRouter from "../modules/admin/routes/client.routes";
+import settingRouter from "../modules/admin/routes/setting.routes";
+import adminAuthRouter from "../modules/admin/routes/auth.routes";
 
 // Admin Routes (Only accessible if NOT a portal)
 router.use("/admin", (req, res, next) => {
@@ -22,7 +24,9 @@ router.use("/admin", (req, res, next) => {
   next();
 });
 
+router.use("/admin/auth", adminAuthRouter);
 router.use("/admin/clients", clientsRouter);
+router.use("/admin/settings", settingRouter);
 
 // Portal Routes (Only accessible if IS a portal)
 router.use("/portal", (req, res, next) => {

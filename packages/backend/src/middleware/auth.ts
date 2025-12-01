@@ -2,8 +2,9 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
 interface JWTPayload {
-  clientId: number;
-  slug: string;
+  userId?: number;
+  clientId?: number;
+  slug?: string;
   type: "portal" | "admin";
 }
 

@@ -4,7 +4,6 @@ import type { NextRequest } from 'next/server';
 export function middleware(request: NextRequest) {
   const hostname = request.headers.get('host') || '';
   
-  // Define your main domain and admin subdomains
   // In local dev: localhost:3000 is admin
   // In prod: admin.domain.com or domain.com is admin
   
