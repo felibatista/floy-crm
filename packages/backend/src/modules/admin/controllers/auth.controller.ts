@@ -56,4 +56,8 @@ export class AuthController {
       res.status(500).json({ error: "Login failed" });
     }
   }
+
+  async verify(req: Request, res: Response) {
+    res.json({ user: req.auth });
+  }
 }
