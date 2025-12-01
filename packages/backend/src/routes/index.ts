@@ -1,34 +1,37 @@
-import { Router } from 'express';
-import { Request, Response } from 'express';
-import portalAuthRouter from './portal/auth'; // Added import
+import { Router } from "express";
+import { Request, Response } from "express";
+import portalAuthRouter from "../modules/portal/routes/auth.routes";
 
 const router = Router();
 
-router.get('/health', (req: Request, res: Response) => {
-  res.json({ status: 'ok', isPortal: req.isPortal, client: req.clientPortal?.name });
+router.get("/health", (req: Request, res: Response) => {
+  res.json({
+    status: "ok",
+    isPortal: req.isPortal,
+    client: req.clientPortal?.name,
+  });
 });
 
-import clientsRouter from './admin/clients';
+import clientsRouter from "../modules/admin/routes/client.routes";
 
 // Admin Routes (Only accessible if NOT a portal)
-router.use('/admin', (req, res, next) => {
+router.use("/admin", (req, res, next) => {
   if (req.isPortal) {
-    return res.status(404).json({ error: 'Not found' });
+    return res.status(404).json({ error: "Not found" });
   }
   next();
 });
 
-router.use('/admin/clients', clientsRouter);
-
+router.use("/admin/clients", clientsRouter);
 
 // Portal Routes (Only accessible if IS a portal)
-router.use('/portal', (req, res, next) => {
+router.use("/portal", (req, res, next) => {
   if (!req.isPortal) {
-    return res.status(404).json({ error: 'Not found' });
+    return res.status(404).json({ error: "Not found" });
   }
   next();
 });
 
-router.use('/portal/auth', portalAuthRouter);
+router.use("/portal/auth", portalAuthRouter);
 
 export default router;

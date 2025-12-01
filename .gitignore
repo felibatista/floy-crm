@@ -40,3 +40,4 @@ out/
 
 # Vercel
 .vercel
+/packages/backend/prisma/generated

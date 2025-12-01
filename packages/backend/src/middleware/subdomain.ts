@@ -1,30 +1,33 @@
-import { Request, Response, NextFunction } from 'express';
-import prisma from '../lib/prisma';
+import { Request, Response, NextFunction } from "express";
+import { prisma } from "../lib/prisma";
 
-// Extend Express Request to include client
 declare global {
   namespace Express {
     interface Request {
-      clientPortal?: any; // Using any for now to avoid circular dependency issues with Prisma types
+      clientPortal?: any;
       isPortal?: boolean;
     }
   }
 }
 
-export const subdomainMiddleware = async (req: Request, res: Response, next: NextFunction) => {
-  const host = req.headers.host || '';
-  
-  // Logic to extract subdomain. 
+export const subdomainMiddleware = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const host = req.headers.host || "";
+
+  // Logic to extract subdomain.
   // Assuming format: subdomain.domain.com or subdomain.localhost:3000
-  const parts = host.split('.');
-  
+  const parts = host.split(".");
+
   // Adjust this logic based on your actual domain structure.
   // For localhost development (e.g. defender.localhost:3000), parts[0] is the subdomain.
   // For production (e.g. defender.acentus.com.ar), parts[0] is the subdomain.
-  
-  let subdomain = '';
-  
-  if (host.includes('localhost')) {
+
+  let subdomain = "";
+
+  if (host.includes("localhost")) {
     // localhost:3000 -> parts=['localhost:3000'] (length 1) -> no subdomain
     // defender.localhost:3000 -> parts=['defender', 'localhost:3000'] (length 2) -> subdomain = defender
     if (parts.length > 1) {
@@ -39,7 +42,7 @@ export const subdomainMiddleware = async (req: Request, res: Response, next: Nex
   }
 
   // Reserved subdomains for the main admin panel
-  const reservedSubdomains = ['www', 'admin', 'api', 'app'];
+  const reservedSubdomains = ["www", "admin", "api", "app"];
 
   if (!subdomain || reservedSubdomains.includes(subdomain)) {
     req.isPortal = false;
@@ -53,18 +56,20 @@ export const subdomainMiddleware = async (req: Request, res: Response, next: Nex
     });
 
     if (!client) {
-      return res.status(404).json({ error: 'Portal not found' });
+      return res.status(404).json({ error: "Portal not found" });
     }
 
     if (!client.isPortalEnabled) {
-      return res.status(403).json({ error: 'Portal access is disabled for this client' });
+      return res
+        .status(403)
+        .json({ error: "Portal access is disabled for this client" });
     }
 
     req.isPortal = true;
     req.clientPortal = client;
     next();
   } catch (error) {
-    console.error('Subdomain middleware error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error("Subdomain middleware error:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 };

@@ -1,16 +1,17 @@
 generator client {
   provider = "prisma-client-js"
+  output = "../prisma/generated"
+  engineType = "client"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // --- ADMIN / STAFF USERS ---
 
 model User {
-  id            String   @id @default(uuid())
+  id            Int      @id @default(autoincrement())
   name          String
   email         String   @unique
   passwordHash  String
@@ -21,7 +22,7 @@ model User {
 }
 
 model Group {
-  id          String   @id @default(uuid())
+  id          Int      @id @default(autoincrement())
   name        String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -31,7 +32,7 @@ model Group {
 }
 
 model Permission {
-  id          String   @id @default(uuid())
+  id          Int      @id @default(autoincrement())
   name        String
   code        String   @unique
   createdAt   DateTime @default(now())
@@ -41,10 +42,10 @@ model Permission {
 }
 
 model GroupPermission {
-  id           String   @id @default(uuid())
+  id           Int      @id @default(autoincrement())
   createdAt    DateTime @default(now())
-  groupId      String
-  permissionId String
+  groupId      Int
+  permissionId Int
 
   group        Group      @relation(fields: [groupId], references: [id], onDelete: Cascade)
   permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
@@ -63,7 +64,7 @@ enum LeadStatus {
 }
 
 model Lead {
-  id              String   @id @default(uuid())
+  id              Int      @id @default(autoincrement())
   name            String
   email           String?
   phone           String?
@@ -75,7 +76,7 @@ model Lead {
 }
 
 model Client {
-  id              String   @id @default(uuid())
+  id              Int      @id @default(autoincrement())
   name            String
   email           String?  @unique
   phone           String?
@@ -84,7 +85,6 @@ model Client {
   
   // Portal Configuration
   slug            String   @unique // Subdomain: defender, acme
-  domain          String?  @unique // Custom domain: portal.defender.com
   isPortalEnabled Boolean  @default(false)
   passwordHash    String?  // Master password for the portal
   
@@ -105,10 +105,10 @@ enum ProjectStatus {
 }
 
 model Project {
-  id          String   @id @default(uuid())
+  id          Int      @id @default(autoincrement())
   name        String
   description String?
-  clientId    String
+  clientId    Int
   status      ProjectStatus   @default(active)
   startDate   DateTime?
   endDate     DateTime?
@@ -137,10 +137,10 @@ enum TicketStatus {
 }
 
 model Ticket {
-  id          String   @id @default(uuid())
+  id          Int      @id @default(autoincrement())
   title       String
   description String?
-  clientId    String
+  clientId    Int
   priority    TicketPriority    @default(medium)
   status      TicketStatus      @default(open)
   createdAt   DateTime @default(now())
@@ -165,11 +165,11 @@ enum TaskPriority {
 }
 
 model Task {
-  id          String   @id @default(uuid())
+  id          Int      @id @default(autoincrement())
   title       String
   description String?
-  projectId   String
-  ticketId    String?
+  projectId   Int
+  ticketId    Int?
   status      TaskStatus @default(pending)
   priority    TaskPriority @default(medium)
   startDate   DateTime?
@@ -187,8 +187,8 @@ model Task {
 }
 
 model Commit {
-  id          String   @id @default(uuid())
-  taskId      String
+  id          Int      @id @default(autoincrement())
+  taskId      Int
   message     String
   author      String
   hash        String?
@@ -206,8 +206,8 @@ enum PaymentStatus {
 }
 
 model Payment {
-  id            String   @id @default(uuid())
-  projectId     String
+  id            Int      @id @default(autoincrement())
+  projectId     Int
   amount        Decimal  @db.Decimal(10, 2)
   currency      String   @default("ARS")
   concept       String?
@@ -229,8 +229,8 @@ enum InvoiceStatus {
 }
 
 model Invoice {
-  id             String   @id @default(uuid())
-  paymentId      String
+  id             Int      @id @default(autoincrement())
+  paymentId      Int
   invoiceNumber  String   @unique
   amount         Decimal  @db.Decimal(10, 2)
   currency       String   @default("ARS")
@@ -245,8 +245,8 @@ model Invoice {
 }
 
 model File {
-  id          String   @id @default(uuid())
-  projectId   String
+  id          Int      @id @default(autoincrement())
+  projectId   Int
   name        String
   url         String
   type        String?
@@ -265,8 +265,8 @@ enum ServerStatus {
 }
 
 model Server {
-  id          String   @id @default(uuid())
-  projectId   String
+  id          Int      @id @default(autoincrement())
+  projectId   Int
   name        String
   type        String?
   ip          String?
