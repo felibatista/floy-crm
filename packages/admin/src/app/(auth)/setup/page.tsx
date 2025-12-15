@@ -13,7 +13,7 @@ export default function SetupPage() {
 
   useEffect(() => {
     // Verify if setup is actually needed
-    fetch("http://localhost:3001/api/admin/auth/status")
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/auth/status`)
       .then((res) => res.json())
       .then((data) => {
         if (data.isInitialized) {
@@ -29,11 +29,14 @@ export default function SetupPage() {
     setError("");
 
     try {
-      const res = await fetch("http://localhost:3001/api/admin/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
-      });
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/admin/auth/register`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, email, password }),
+        }
+      );
 
       const data = await res.json();
 

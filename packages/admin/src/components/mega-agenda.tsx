@@ -54,8 +54,13 @@ function safeParse(raw: string | null): AgendaState {
 }
 
 export function MegaAgenda() {
-  const [selectedDate, setSelectedDate] = React.useState<Date>(() => new Date());
-  const [state, setState] = React.useState<AgendaState>({ version: 1, events: [] });
+  const [selectedDate, setSelectedDate] = React.useState<Date>(
+    () => new Date()
+  );
+  const [state, setState] = React.useState<AgendaState>({
+    version: 1,
+    events: [],
+  });
 
   const [open, setOpen] = React.useState(false);
   const [title, setTitle] = React.useState("");
@@ -64,7 +69,11 @@ export function MegaAgenda() {
   const [description, setDescription] = React.useState("");
 
   React.useEffect(() => {
-    const loaded = safeParse(typeof window !== "undefined" ? window.localStorage.getItem(STORAGE_KEY) : null);
+    const loaded = safeParse(
+      typeof window !== "undefined"
+        ? window.localStorage.getItem(STORAGE_KEY)
+        : null
+    );
     setState(loaded);
   }, []);
 
@@ -129,15 +138,18 @@ export function MegaAgenda() {
   };
 
   const handleDelete = (id: string) => {
-    setState((prev) => ({ ...prev, events: prev.events.filter((e) => e.id !== id) }));
+    setState((prev) => ({
+      ...prev,
+      events: prev.events.filter((e) => e.id !== id),
+    }));
   };
 
   return (
     <Card className="min-h-[70vh]">
       <CardHeader className="flex flex-row items-center justify-between gap-3">
         <div className="space-y-1">
-          <CardTitle className="text-xl">Agenda</CardTitle>
-          <p className="text-sm text-muted-foreground">
+          <CardTitle className="text-sm">Agenda</CardTitle>
+          <p className="text-xs text-muted-foreground">
             Seleccioná un día y cargá eventos para esa fecha.
           </p>
         </div>
@@ -157,9 +169,11 @@ export function MegaAgenda() {
             <div className="grid gap-4">
               <div className="grid gap-2">
                 <Label>Fecha</Label>
-                <div className="flex items-center gap-2 text-sm">
+                <div className="flex items-center gap-2 text-xs">
                   <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-medium">{format(selectedDate, "PPP")}</span>
+                  <span className="font-medium">
+                    {format(selectedDate, "PPP")}
+                  </span>
                 </div>
               </div>
 
@@ -238,8 +252,12 @@ export function MegaAgenda() {
           <div className="rounded-lg border p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold">{format(selectedDate, "PPP")}</h2>
-                <p className="text-sm text-muted-foreground">{eventsForDay.length} evento(s)</p>
+                <h2 className="text-sm font-semibold">
+                  {format(selectedDate, "PPP")}
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  {eventsForDay.length} evento(s)
+                </p>
               </div>
             </div>
 
@@ -259,7 +277,7 @@ export function MegaAgenda() {
                           <p className="truncate font-medium">{e.title}</p>
                         </div>
                         {e.description ? (
-                          <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
+                          <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">
                             {e.description}
                           </p>
                         ) : null}
@@ -276,7 +294,7 @@ export function MegaAgenda() {
                   </div>
                 ))
               ) : (
-                <div className="rounded-md border border-dashed p-6 text-sm text-muted-foreground">
+                <div className="rounded-md border border-dashed p-6 text-xs text-muted-foreground">
                   No hay eventos para este día. Creá uno con “Nuevo evento”.
                 </div>
               )}
