@@ -15,14 +15,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { ArrowLeft, Save, Trash2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ArrowLeft, Save, Trash2, Copy } from "lucide-react";
 
 interface User {
   id: number;
@@ -56,6 +50,59 @@ interface Task {
   updatedAt: string;
 }
 
+const statusConfig: Record<
+  string,
+  {
+    label: string;
+    variant:
+      | "default"
+      | "secondary"
+      | "outline"
+      | "destructive"
+      | "green"
+      | "orange"
+      | "blue"
+      | "yellow"
+      | "purple";
+  }
+> = {
+  draft: { label: "Borrador", variant: "secondary" },
+  pending: { label: "Pendiente", variant: "orange" },
+  in_progress: { label: "En Progreso", variant: "blue" },
+  completed: { label: "Completada", variant: "green" },
+  cancelled: { label: "Cancelada", variant: "destructive" },
+};
+
+// Workflow steps order
+const workflowSteps = [
+  { key: "draft", label: "Borrador" },
+  { key: "pending", label: "Pendiente" },
+  { key: "in_progress", label: "En Progreso" },
+  { key: "completed", label: "Completada" },
+];
+
+const priorityConfig: Record<
+  string,
+  {
+    label: string;
+    variant:
+      | "default"
+      | "secondary"
+      | "outline"
+      | "destructive"
+      | "green"
+      | "orange"
+      | "blue"
+      | "yellow"
+      | "purple";
+  }
+> = {
+  low: { label: "Baja", variant: "secondary" },
+  medium: { label: "Media", variant: "blue" },
+  high: { label: "Alta", variant: "orange" },
+  urgent: { label: "Urgente", variant: "destructive" },
+};
+
 export default function TaskDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -75,12 +122,14 @@ export default function TaskDetailPage() {
     projectId: "",
     assignedToId: "",
     category: "",
-    status: "pending",
+    status: "draft",
     priority: "medium",
     timeEstimated: "",
     timeSpent: "",
     includeInChangeLog: false,
   });
+
+  const isDraft = formData.status === "draft";
 
   const fetchTask = async () => {
     setLoading(true);
@@ -197,254 +246,448 @@ export default function TaskDetailPage() {
     }
   };
 
+  const copyCode = () => {
+    if (task?.code) {
+      navigator.clipboard.writeText(task.code.slice(-8).toUpperCase());
+    }
+  };
+
+  const handleStatusChange = async (newStatus: string) => {
+    if (!task || newStatus === formData.status) return;
+
+    // No permitir volver a borrador una vez que salió de ese estado
+    if (newStatus === "draft" && formData.status !== "draft") return;
+
+    setFormData({ ...formData, status: newStatus });
+
+    // Auto-save status change
+    try {
+      const token = localStorage.getItem("admin_token");
+      await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/admin/tasks/${task.id}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            ...formData,
+            status: newStatus,
+            projectId: parseInt(formData.projectId),
+            assignedToId: formData.assignedToId
+              ? parseInt(formData.assignedToId)
+              : null,
+          }),
+        }
+      );
+    } catch (err) {
+      console.error("Error updating status:", err);
+    }
+  };
+
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Skeleton className="h-10 w-10" />
+      <div className="h-full flex flex-col">
+        <div className="border-b p-4">
           <Skeleton className="h-8 w-64" />
         </div>
-        <Skeleton className="h-96" />
+        <div className="flex-1 p-6">
+          <Skeleton className="h-96" />
+        </div>
       </div>
     );
   }
 
   if (error && !task) {
     return (
-      <div className="space-y-6">
+      <div className="h-full flex flex-col p-6">
         <Button variant="ghost" onClick={() => router.back()}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Volver
         </Button>
-        <div className="bg-destructive/15 text-destructive px-4 py-3 rounded-md">
+        <div className="bg-destructive/15 text-destructive px-4 py-3 rounded-md mt-4">
           {error}
         </div>
       </div>
     );
   }
 
+  const statusInfo = statusConfig[formData.status] || {
+    label: formData.status,
+    variant: "default" as const,
+  };
+  const priorityInfo = priorityConfig[formData.priority] || {
+    label: formData.priority,
+    variant: "default" as const,
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.back()}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="font-mono">
-                {task?.code.slice(-8).toUpperCase()}
-              </Badge>
-              <h1 className="text-xl font-semibold">{task?.title}</h1>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Creada el{" "}
-              {task?.createdAt &&
-                new Date(task.createdAt).toLocaleDateString("es-AR")}
-            </p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="destructive" size="sm" onClick={handleDelete}>
-            <Trash2 className="h-4 w-4 mr-2" />
-            Eliminar
-          </Button>
-          <Button size="sm" onClick={handleSave} disabled={saving}>
-            <Save className="h-4 w-4 mr-2" />
-            {saving ? "Guardando..." : "Guardar"}
-          </Button>
+    <div className="h-full flex flex-col">
+      {/* Header con estado de workflow - clickeable */}
+      <div className="border-b bg-muted/30">
+        <div className="flex items-center gap-1 px-4 py-2 overflow-x-auto">
+          {workflowSteps.map((step, index) => {
+            const isDisabled =
+              step.key === "draft" && formData.status !== "draft";
+            return (
+              <div key={step.key} className="flex items-center gap-1">
+                {index > 0 && (
+                  <span className="text-muted-foreground mx-1">→</span>
+                )}
+                <Badge
+                  variant={formData.status === step.key ? "blue" : "outline"}
+                  className={`whitespace-nowrap transition-all ${
+                    formData.status === step.key ? "ring-2 ring-blue-300" : ""
+                  } ${
+                    isDisabled
+                      ? "opacity-50 cursor-not-allowed"
+                      : "cursor-pointer hover:scale-105 hover:bg-muted"
+                  }`}
+                  onClick={() => !isDisabled && handleStatusChange(step.key)}
+                >
+                  {step.label}
+                </Badge>
+              </div>
+            );
+          })}
+          <span className="text-muted-foreground mx-1">|</span>
+          <Badge
+            variant={
+              formData.status === "cancelled" ? "destructive" : "outline"
+            }
+            className={`cursor-pointer whitespace-nowrap transition-all hover:scale-105 ${
+              formData.status === "cancelled"
+                ? "ring-2 ring-red-300"
+                : "hover:bg-muted"
+            }`}
+            onClick={() => handleStatusChange("cancelled")}
+          >
+            Cancelada
+          </Badge>
         </div>
       </div>
 
-      {error && (
-        <div className="bg-destructive/15 text-destructive px-4 py-3 rounded-md">
-          {error}
-        </div>
-      )}
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Información básica</CardTitle>
-            <CardDescription>Datos principales de la tarea</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="title">Título</Label>
-              <Input
-                id="title"
-                value={formData.title}
-                onChange={(e) =>
-                  setFormData({ ...formData, title: e.target.value })
-                }
-              />
+      {/* Contenido principal */}
+      <div className="flex-1 overflow-auto">
+        <div className="p-6">
+          {error && (
+            <div className="bg-destructive/15 text-destructive px-4 py-3 rounded-md mb-4">
+              {error}
             </div>
+          )}
 
-            <div className="space-y-2">
-              <Label htmlFor="description">Descripción</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-                rows={4}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Proyecto</Label>
-              <Select
-                value={formData.projectId}
-                onValueChange={(v) =>
-                  setFormData({ ...formData, projectId: v })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar proyecto" />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects.map((p) => (
-                    <SelectItem key={p.id} value={p.id.toString()}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="category">Categoría</Label>
-              <Input
-                id="category"
-                value={formData.category}
-                onChange={(e) =>
-                  setFormData({ ...formData, category: e.target.value })
-                }
-                placeholder="ej: Backend, Frontend, DevOps"
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Estado y asignación</CardTitle>
-            <CardDescription>
-              Configuración de estado y responsable
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Estado</Label>
-                <Select
-                  value={formData.status}
-                  onValueChange={(v) => setFormData({ ...formData, status: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pending">Pendiente</SelectItem>
-                    <SelectItem value="in_progress">En progreso</SelectItem>
-                    <SelectItem value="completed">Completada</SelectItem>
-                    <SelectItem value="cancelled">Cancelada</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Prioridad</Label>
-                <Select
-                  value={formData.priority}
-                  onValueChange={(v) =>
-                    setFormData({ ...formData, priority: v })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">Baja</SelectItem>
-                    <SelectItem value="medium">Media</SelectItem>
-                    <SelectItem value="high">Alta</SelectItem>
-                    <SelectItem value="urgent">Urgente</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Asignado a</Label>
-              <Select
-                value={formData.assignedToId || "unassigned"}
-                onValueChange={(v) =>
-                  setFormData({
-                    ...formData,
-                    assignedToId: v === "unassigned" ? "" : v,
-                  })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Sin asignar" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="unassigned">Sin asignar</SelectItem>
-                  {users.map((u) => (
-                    <SelectItem key={u.id} value={u.id.toString()}>
-                      {u.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="timeEstimated">Tiempo estimado</Label>
+          {/* Título y código */}
+          <div className="flex items-start justify-between mb-6">
+            <div className="flex-1">
+              {isDraft ? (
                 <Input
-                  id="timeEstimated"
-                  value={formData.timeEstimated}
+                  value={formData.title}
                   onChange={(e) =>
-                    setFormData({ ...formData, timeEstimated: e.target.value })
+                    setFormData({ ...formData, title: e.target.value })
                   }
-                  placeholder="ej: 2h, 1d"
+                  className="text-2xl font-bold mb-2 h-auto py-1 px-2"
+                  placeholder="Título de la tarea"
                 />
+              ) : (
+                <h1 className="text-2xl font-bold mb-2">{formData.title}</h1>
+              )}
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <span>
+                  Proyecto:{" "}
+                  {isDraft ? (
+                    <Select
+                      value={formData.projectId}
+                      onValueChange={(v) =>
+                        setFormData({ ...formData, projectId: v })
+                      }
+                    >
+                      <SelectTrigger className="w-[200px] h-7 inline-flex ml-1">
+                        <SelectValue placeholder="Seleccionar proyecto" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {projects.map((p) => (
+                          <SelectItem key={p.id} value={p.id.toString()}>
+                            {p.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <span className="text-foreground">
+                      {task?.project?.name}
+                    </span>
+                  )}
+                </span>
               </div>
+            </div>
+            <div className="text-right">
+              <div className="text-sm text-muted-foreground mb-1">Tarea</div>
+              <div className="flex items-center gap-2">
+                <span className="font-mono font-bold text-lg">
+                  {task?.code.slice(-8).toUpperCase()}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={copyCode}
+                >
+                  <Copy className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+          </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="timeSpent">Tiempo dedicado</Label>
+          {/* Información en dos columnas */}
+          <div className="grid md:grid-cols-2 gap-x-12 gap-y-3 mb-6 text-sm">
+            {/* Columna izquierda */}
+            <div className="space-y-3">
+              <div className="flex items-center">
+                <span className="w-40 text-muted-foreground">Categoría</span>
+                {isDraft ? (
+                  <Input
+                    value={formData.category}
+                    onChange={(e) =>
+                      setFormData({ ...formData, category: e.target.value })
+                    }
+                    className="h-7 w-40"
+                    placeholder="Categoría"
+                  />
+                ) : (
+                  <span>{formData.category || "-"}</span>
+                )}
+              </div>
+              <div className="flex items-center">
+                <span className="w-40 text-muted-foreground">Asignado a</span>
+                {isDraft ? (
+                  <Select
+                    value={formData.assignedToId || "unassigned"}
+                    onValueChange={(v) =>
+                      setFormData({
+                        ...formData,
+                        assignedToId: v === "unassigned" ? "" : v,
+                      })
+                    }
+                  >
+                    <SelectTrigger className="w-40 h-7">
+                      <SelectValue placeholder="Sin asignar" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unassigned">Sin asignar</SelectItem>
+                      {users.map((u) => (
+                        <SelectItem key={u.id} value={u.id.toString()}>
+                          {u.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <span>{task?.assignedTo?.name || "Sin asignar"}</span>
+                )}
+              </div>
+              <div className="flex items-center">
+                <span className="w-40 text-muted-foreground">
+                  Tiempo estimado
+                </span>
+                {isDraft ? (
+                  <Input
+                    value={formData.timeEstimated}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        timeEstimated: e.target.value,
+                      })
+                    }
+                    className="h-7 w-24"
+                    placeholder="ej: 2h"
+                  />
+                ) : (
+                  <span>{formData.timeEstimated || "00:00"}</span>
+                )}
+              </div>
+              <div className="flex items-center">
+                <span className="w-40 text-muted-foreground">
+                  Tiempo dedicado
+                </span>
                 <Input
-                  id="timeSpent"
                   value={formData.timeSpent}
                   onChange={(e) =>
                     setFormData({ ...formData, timeSpent: e.target.value })
                   }
-                  placeholder="ej: 1h 30m"
+                  className="h-7 w-24"
+                  placeholder="ej: 1h"
                 />
               </div>
             </div>
 
-            <div className="flex items-center gap-2 pt-2">
-              <input
-                type="checkbox"
-                id="includeInChangeLog"
-                checked={formData.includeInChangeLog}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    includeInChangeLog: e.target.checked,
-                  })
-                }
-                className="h-4 w-4"
-              />
-              <Label htmlFor="includeInChangeLog" className="text-sm">
-                Incluir en changelog
-              </Label>
+            {/* Columna derecha */}
+            <div className="space-y-3">
+              <div className="flex items-center">
+                <span className="w-40 text-muted-foreground">Fecha</span>
+                <span>
+                  {task?.createdAt &&
+                    new Date(task.createdAt).toLocaleDateString("es-AR")}
+                </span>
+              </div>
+              <div className="flex items-center">
+                <span className="w-40 text-muted-foreground">Estado</span>
+                <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
+              </div>
+              <div className="flex items-center">
+                <span className="w-40 text-muted-foreground">Prioridad</span>
+                {isDraft ? (
+                  <Select
+                    value={formData.priority}
+                    onValueChange={(v) =>
+                      setFormData({ ...formData, priority: v })
+                    }
+                  >
+                    <SelectTrigger className="w-28 h-7">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Baja</SelectItem>
+                      <SelectItem value="medium">Media</SelectItem>
+                      <SelectItem value="high">Alta</SelectItem>
+                      <SelectItem value="urgent">Urgente</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Badge variant={priorityInfo.variant}>
+                    {priorityInfo.label}
+                  </Badge>
+                )}
+              </div>
+              <div className="flex items-center">
+                <span className="w-40 text-muted-foreground">Changelog</span>
+                {isDraft ? (
+                  <input
+                    type="checkbox"
+                    checked={formData.includeInChangeLog}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        includeInChangeLog: e.target.checked,
+                      })
+                    }
+                    className="h-4 w-4"
+                  />
+                ) : (
+                  <span>{formData.includeInChangeLog ? "Sí" : "No"}</span>
+                )}
+              </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+
+          {/* Botones de acción */}
+          <div className="flex gap-2 mb-6">
+            <Button variant="outline" size="sm" onClick={() => router.back()}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Volver
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSave}
+              disabled={saving}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {saving ? "Guardando..." : "Guardar"}
+            </Button>
+            <Button variant="destructive" size="sm" onClick={handleDelete}>
+              <Trash2 className="h-4 w-4 mr-2" />
+              Eliminar
+            </Button>
+          </div>
+
+          {/* Tabs */}
+          <Tabs defaultValue="descripcion" className="w-full">
+            <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
+              <TabsTrigger
+                value="descripcion"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
+              >
+                Descripción
+              </TabsTrigger>
+              <TabsTrigger
+                value="historial"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
+              >
+                Historial
+              </TabsTrigger>
+              <TabsTrigger
+                value="relacionadas"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
+              >
+                Tareas Relacionadas
+              </TabsTrigger>
+              <TabsTrigger
+                value="tickets"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
+              >
+                Tickets
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="descripcion" className="mt-4">
+              <div className="bg-muted/30 rounded-lg p-4">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
+                  <span>{task?.assignedTo?.name || "Sin asignar"}</span>
+                  <span>•</span>
+                  <span>
+                    {task?.createdAt &&
+                      new Date(task.createdAt).toLocaleString("es-AR")}
+                  </span>
+                </div>
+                {isDraft ? (
+                  <Textarea
+                    value={formData.description}
+                    onChange={(e) =>
+                      setFormData({ ...formData, description: e.target.value })
+                    }
+                    rows={8}
+                    placeholder="Descripción de la tarea..."
+                    className="bg-background"
+                  />
+                ) : (
+                  <div className="prose prose-sm max-w-none dark:prose-invert">
+                    {formData.description ? (
+                      <p className="whitespace-pre-wrap">
+                        {formData.description}
+                      </p>
+                    ) : (
+                      <p className="text-muted-foreground italic">
+                        Sin descripción
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="historial" className="mt-4">
+              <div className="text-muted-foreground text-sm">
+                <p>Historial de cambios de la tarea.</p>
+                <p className="mt-2 italic">Próximamente...</p>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="relacionadas" className="mt-4">
+              <div className="text-muted-foreground text-sm">
+                <p>Tareas relacionadas con esta.</p>
+                <p className="mt-2 italic">Próximamente...</p>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="tickets" className="mt-4">
+              <div className="text-muted-foreground text-sm">
+                <p>Tickets asociados a esta tarea.</p>
+                <p className="mt-2 italic">Próximamente...</p>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
     </div>
   );

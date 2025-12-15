@@ -12,13 +12,15 @@ router.get("/health", (req: Request, res: Response) => {
   });
 });
 
-import clientsRouter from "../modules/admin/routes/client.routes";
-import settingRouter from "../modules/admin/routes/setting.routes";
-import adminAuthRouter from "../modules/admin/routes/auth.routes";
-import coolifyRouter from "../modules/admin/routes/coolify.routes";
-import taskRouter from "../modules/admin/routes/task.routes";
-import userRouter from "../modules/admin/routes/user.routes";
-import projectRouter from "../modules/admin/routes/project.routes";
+// Admin module routes
+import { authRoutes as adminAuthRouter } from "../modules/admin/auth";
+import { clientRoutes as clientsRouter } from "../modules/admin/clients";
+import { leadRoutes as leadRouter } from "../modules/admin/leads";
+import { taskRoutes as taskRouter } from "../modules/admin/tasks";
+import { userRoutes as userRouter } from "../modules/admin/users";
+import { projectRoutes as projectRouter } from "../modules/admin/projects";
+import { settingRoutes as settingRouter } from "../modules/admin/settings";
+import { coolifyRoutes as coolifyRouter } from "../modules/admin/coolify";
 
 // Admin Routes (Only accessible if NOT a portal)
 router.use("/admin", (req, res, next) => {
@@ -35,6 +37,7 @@ router.use("/admin/coolify", coolifyRouter);
 router.use("/admin/tasks", taskRouter);
 router.use("/admin/users", userRouter);
 router.use("/admin/projects", projectRouter);
+router.use("/admin/leads", leadRouter);
 
 // Portal Routes (Only accessible if IS a portal)
 router.use("/portal", (req, res, next) => {

@@ -198,17 +198,26 @@ export default function ClienteDetailPage() {
     const statusMap: Record<
       string,
       {
-        variant: "default" | "secondary" | "destructive" | "outline";
+        variant:
+          | "default"
+          | "secondary"
+          | "destructive"
+          | "outline"
+          | "yellow"
+          | "blue"
+          | "green"
+          | "orange"
+          | "purple";
         label: string;
       }
     > = {
-      active: { variant: "default", label: "Activo" },
-      paused: { variant: "secondary", label: "Pausado" },
-      completed: { variant: "outline", label: "Completado" },
+      active: { variant: "green", label: "Activo" },
+      paused: { variant: "yellow", label: "Pausado" },
+      completed: { variant: "purple", label: "Completado" },
       cancelled: { variant: "destructive", label: "Cancelado" },
-      open: { variant: "default", label: "Abierto" },
-      in_progress: { variant: "secondary", label: "En progreso" },
-      resolved: { variant: "outline", label: "Resuelto" },
+      open: { variant: "blue", label: "Abierto" },
+      in_progress: { variant: "orange", label: "En progreso" },
+      resolved: { variant: "green", label: "Resuelto" },
       closed: { variant: "outline", label: "Cerrado" },
     };
     const info = statusMap[status] || { variant: "outline", label: status };

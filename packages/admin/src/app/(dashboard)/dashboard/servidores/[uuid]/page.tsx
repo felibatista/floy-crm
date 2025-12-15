@@ -89,15 +89,24 @@ export default function ProjectDetailPage() {
     const statusMap: Record<
       string,
       {
-        variant: "default" | "secondary" | "destructive" | "outline";
+        variant:
+          | "default"
+          | "secondary"
+          | "destructive"
+          | "outline"
+          | "yellow"
+          | "blue"
+          | "green"
+          | "orange"
+          | "purple";
         label: string;
       }
     > = {
-      running: { variant: "default", label: "Activo" },
+      running: { variant: "green", label: "Activo" },
       exited: { variant: "destructive", label: "Detenido" },
       stopped: { variant: "destructive", label: "Detenido" },
-      starting: { variant: "secondary", label: "Iniciando" },
-      restarting: { variant: "secondary", label: "Reiniciando" },
+      starting: { variant: "blue", label: "Iniciando" },
+      restarting: { variant: "orange", label: "Reiniciando" },
     };
 
     const statusInfo = statusMap[normalizedStatus] || {

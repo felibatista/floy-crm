@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useDebounce } from "@/hooks/use-debounce";
 import { useRouter } from "next/navigation";
 import {
   Table,
@@ -36,6 +37,7 @@ import {
   ChevronRight,
   Building2,
   Globe,
+  Search,
 } from "lucide-react";
 
 interface Client {
@@ -74,6 +76,11 @@ export default function ClientesPage() {
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
+  // Filter state
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
+  const [filterPortal, setFilterPortal] = useState<string>("all");
+
   // Form state
   const [formData, setFormData] = useState({
     name: "",
@@ -91,8 +98,13 @@ export default function ClientesPage() {
     setError(null);
     try {
       const token = localStorage.getItem("admin_token");
+      const params = new URLSearchParams({ page: String(page), limit: "50" });
+      if (debouncedSearch) params.append("search", debouncedSearch);
+      if (filterPortal !== "all")
+        params.append("isPortalEnabled", filterPortal);
+
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/admin/clients?page=${page}&limit=50`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/admin/clients?${params}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -113,6 +125,10 @@ export default function ClientesPage() {
   useEffect(() => {
     fetchClients();
   }, []);
+
+  useEffect(() => {
+    fetchClients(1);
+  }, [debouncedSearch, filterPortal]);
 
   const generateSlug = (name: string) => {
     return name
@@ -313,6 +329,29 @@ export default function ClientesPage() {
             </div>
           </DialogContent>
         </Dialog>
+
+        <div className="flex items-center gap-2 flex-1 justify-end">
+          <Select value={filterPortal} onValueChange={setFilterPortal}>
+            <SelectTrigger className="w-[140px] h-8">
+              <SelectValue placeholder="Portal" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="true">Portal activo</SelectItem>
+              <SelectItem value="false">Portal inactivo</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar clientes..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-8 h-8 w-[200px]"
+            />
+          </div>
+        </div>
       </div>
 
       <div className="border-t flex-1 overflow-auto">
@@ -389,12 +428,12 @@ export default function ClientesPage() {
                   </TableCell>
                   <TableCell>
                     {client.isPortalEnabled ? (
-                      <Badge variant="default" className="gap-1">
+                      <Badge variant="green" className="gap-1">
                         <Globe className="h-3 w-3" />
                         Activo
                       </Badge>
                     ) : (
-                      <Badge variant="secondary">Inactivo</Badge>
+                      <Badge variant="outline">Inactivo</Badge>
                     )}
                   </TableCell>
                 </TableRow>

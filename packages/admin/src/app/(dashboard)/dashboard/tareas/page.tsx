@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useDebounce } from "@/hooks/use-debounce";
 import { useRouter } from "next/navigation";
 import {
   Table,
@@ -30,7 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, Search, Filter } from "lucide-react";
 
 interface User {
   id: number;
@@ -76,6 +77,14 @@ export default function TareasPage() {
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
+  // Filter state
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [filterPriority, setFilterPriority] = useState<string>("all");
+  const [categories, setCategories] = useState<string[]>([]);
+
   // Form state
   const [users, setUsers] = useState<User[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -96,8 +105,13 @@ export default function TareasPage() {
     setError(null);
     try {
       const token = localStorage.getItem("admin_token");
+      const params = new URLSearchParams({ page: String(page), limit: "50" });
+      if (debouncedSearch) params.append("search", debouncedSearch);
+      if (filterStatus !== "all") params.append("status", filterStatus);
+      if (filterCategory !== "all") params.append("category", filterCategory);
+
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/admin/tasks?page=${page}&limit=50`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/admin/tasks?${params}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -112,6 +126,22 @@ export default function TareasPage() {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const token = localStorage.getItem("admin_token");
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/admin/tasks/categories`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setCategories(data);
+      }
+    } catch (err) {
+      console.error("Error fetching categories:", err);
     }
   };
 
@@ -137,7 +167,12 @@ export default function TareasPage() {
   useEffect(() => {
     fetchTasks();
     fetchFormData();
+    fetchCategories();
   }, []);
+
+  useEffect(() => {
+    fetchTasks(1);
+  }, [debouncedSearch, filterStatus, filterCategory, filterPriority]);
 
   const handleCreate = async () => {
     if (!formData.title || !formData.projectId) return;
@@ -188,13 +223,23 @@ export default function TareasPage() {
     const statusMap: Record<
       string,
       {
-        variant: "default" | "secondary" | "destructive" | "outline";
+        variant:
+          | "default"
+          | "secondary"
+          | "destructive"
+          | "outline"
+          | "yellow"
+          | "blue"
+          | "green"
+          | "orange"
+          | "purple";
         label: string;
       }
     > = {
-      pending: { variant: "outline", label: "Pendiente" },
-      in_progress: { variant: "secondary", label: "En progreso" },
-      completed: { variant: "default", label: "Completada" },
+      draft: { variant: "secondary", label: "Borrador" },
+      pending: { variant: "yellow", label: "Pendiente" },
+      in_progress: { variant: "blue", label: "En progreso" },
+      completed: { variant: "green", label: "Completada" },
       cancelled: { variant: "destructive", label: "Cancelada" },
     };
     const info = statusMap[status] || { variant: "outline", label: status };
@@ -209,7 +254,7 @@ export default function TareasPage() {
         </div>
       )}
 
-      <div className="flex items-center justify-between p-2">
+      <div className="flex items-center justify-between p-2 gap-2">
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button size="sm">
@@ -303,6 +348,7 @@ export default function TareasPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="draft">Borrador</SelectItem>
                       <SelectItem value="pending">Pendiente</SelectItem>
                       <SelectItem value="in_progress">En progreso</SelectItem>
                       <SelectItem value="completed">Completada</SelectItem>
@@ -379,6 +425,46 @@ export default function TareasPage() {
             </div>
           </DialogContent>
         </Dialog>
+
+        <div className="flex items-center gap-2 flex-1 justify-end">
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="w-[140px] h-8">
+              <SelectValue placeholder="Estado" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los estados</SelectItem>
+              <SelectItem value="draft">Borrador</SelectItem>
+              <SelectItem value="pending">Pendiente</SelectItem>
+              <SelectItem value="in_progress">En progreso</SelectItem>
+              <SelectItem value="completed">Completada</SelectItem>
+              <SelectItem value="cancelled">Cancelada</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={filterCategory} onValueChange={setFilterCategory}>
+            <SelectTrigger className="w-[140px] h-8">
+              <SelectValue placeholder="Categoría" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas las categorías</SelectItem>
+              {categories.map((cat) => (
+                <SelectItem key={cat} value={cat}>
+                  {cat}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar tareas..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-8 h-8 w-[200px]"
+            />
+          </div>
+        </div>
       </div>
 
       <div className="border-t flex-1 overflow-auto">

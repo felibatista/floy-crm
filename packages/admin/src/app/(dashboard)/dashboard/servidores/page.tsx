@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
+import { useDebounce } from "@/hooks/use-debounce";
 import { useRouter } from "next/navigation";
 import {
   Table,
@@ -11,6 +12,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Search } from "lucide-react";
 
 interface Project {
   id: number;
@@ -24,6 +27,8 @@ export default function ServidoresPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
   const router = useRouter();
 
   const fetchProjects = async () => {
@@ -57,15 +62,37 @@ export default function ServidoresPage() {
     fetchProjects();
   }, []);
 
+  const filteredProjects = useMemo(() => {
+    if (!debouncedSearch) return projects;
+    const searchLower = debouncedSearch.toLowerCase();
+    return projects.filter(
+      (p) =>
+        p.name.toLowerCase().includes(searchLower) ||
+        p.description?.toLowerCase().includes(searchLower)
+    );
+  }, [projects, debouncedSearch]);
+
   return (
-    <div className="h-full">
+    <div className="h-full flex flex-col">
       {error && (
-        <div className="bg-destructive/15 text-destructive px-4 py-3 rounded-md">
+        <div className="bg-destructive/15 text-destructive px-4 py-3 rounded-md mb-4">
           {error}
         </div>
       )}
 
-      <div>
+      <div className="flex items-center justify-end p-2">
+        <div className="relative">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar proyectos..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-8 h-8 w-[200px]"
+          />
+        </div>
+      </div>
+
+      <div className="border-t flex-1 overflow-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -85,17 +112,19 @@ export default function ServidoresPage() {
                   </TableCell>
                 </TableRow>
               ))
-            ) : projects.length === 0 ? (
+            ) : filteredProjects.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={2}
                   className="text-center text-muted-foreground py-8"
                 >
-                  No hay proyectos disponibles
+                  {search
+                    ? "No se encontraron proyectos"
+                    : "No hay proyectos disponibles"}
                 </TableCell>
               </TableRow>
             ) : (
-              projects.map((project) => (
+              filteredProjects.map((project) => (
                 <TableRow
                   key={project.uuid}
                   className="cursor-pointer hover:bg-muted/50"

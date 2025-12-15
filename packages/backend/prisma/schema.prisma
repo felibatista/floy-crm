@@ -152,6 +152,7 @@ model Ticket {
 }
 
 enum TaskStatus {
+  draft
   cancelled
   completed
   in_progress
