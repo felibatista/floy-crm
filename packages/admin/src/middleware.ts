@@ -13,13 +13,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const enableAuth = process.env.ENABLE_AUTH === "true";
-
-  if (enableAuth) {
-    const authResponse = await handleAuthCheck(request);
-    if (authResponse) {
-      return authResponse;
-    }
+  const authResponse = await handleAuthCheck(request);
+  if (authResponse) {
+    return authResponse;
   }
 
   return NextResponse.next();

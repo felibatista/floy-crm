@@ -5,7 +5,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Floy CRM Admin",
+  title: "Admin | Acentus",
   description: "Admin panel for Floy CRM",
 };
 
