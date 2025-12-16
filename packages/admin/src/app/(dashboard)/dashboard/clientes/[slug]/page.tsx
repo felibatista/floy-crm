@@ -297,13 +297,16 @@ export default function ClienteDetailPage() {
       // Update local state
       setClient({
         ...client,
-        projects: [...client.projects, {
-          id: newProject.id,
-          name: newProject.name,
-          status: newProject.status,
-          githubRepo: newProject.githubRepo,
-          createdAt: newProject.createdAt,
-        }],
+        projects: [
+          ...client.projects,
+          {
+            id: newProject.id,
+            name: newProject.name,
+            status: newProject.status,
+            githubRepo: newProject.githubRepo,
+            createdAt: newProject.createdAt,
+          },
+        ],
         _count: {
           ...client._count,
           projects: client._count.projects + 1,
@@ -603,7 +606,10 @@ export default function ClienteDetailPage() {
                     <FolderOpen className="h-4 w-4" />
                     Proyectos ({client?.projects.length || 0})
                   </CardTitle>
-                  <Dialog open={createProjectOpen} onOpenChange={setCreateProjectOpen}>
+                  <Dialog
+                    open={createProjectOpen}
+                    onOpenChange={setCreateProjectOpen}
+                  >
                     <DialogTrigger asChild>
                       <Button variant="outline" size="sm">
                         <Plus className="h-4 w-4 mr-1" />
@@ -614,7 +620,8 @@ export default function ClienteDetailPage() {
                       <DialogHeader>
                         <DialogTitle>Crear nuevo proyecto</DialogTitle>
                         <DialogDescription>
-                          Ingresa los datos del nuevo proyecto para {client?.name}
+                          Ingresa los datos del nuevo proyecto para{" "}
+                          {client?.name}
                         </DialogDescription>
                       </DialogHeader>
                       <div className="space-y-4 py-4">
@@ -629,24 +636,32 @@ export default function ClienteDetailPage() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="projectDescription">Descripción</Label>
+                          <Label htmlFor="projectDescription">
+                            Descripción
+                          </Label>
                           <Textarea
                             id="projectDescription"
                             value={newProjectDescription}
-                            onChange={(e) => setNewProjectDescription(e.target.value)}
+                            onChange={(e) =>
+                              setNewProjectDescription(e.target.value)
+                            }
                             placeholder="Descripción del proyecto (opcional)"
                             rows={3}
                             disabled={creatingProject}
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="projectGithubRepo">Repositorio GitHub</Label>
+                          <Label htmlFor="projectGithubRepo">
+                            Repositorio GitHub
+                          </Label>
                           <div className="flex items-center gap-2">
                             <Github className="h-4 w-4 text-muted-foreground" />
                             <Input
                               id="projectGithubRepo"
                               value={newProjectGithubRepo}
-                              onChange={(e) => setNewProjectGithubRepo(e.target.value)}
+                              onChange={(e) =>
+                                setNewProjectGithubRepo(e.target.value)
+                              }
                               placeholder="owner/repo"
                               disabled={creatingProject}
                             />

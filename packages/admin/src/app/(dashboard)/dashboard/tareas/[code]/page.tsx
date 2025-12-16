@@ -5,7 +5,13 @@ import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Save, Trash2, GitCommit } from "lucide-react";
+import {
+  ArrowLeft,
+  Save,
+  Trash2,
+  GitCommit,
+  List
+} from "lucide-react";
 import {
   Task,
   User,
@@ -19,6 +25,15 @@ import {
 } from "@/components/tareas";
 import { WorkLogsList, WorkLog } from "@/components/worklogs";
 import { CommitsList } from "@/components/commits";
+import { ButtonGroup } from "@/components/ui/button-group";
+import {
+  Menubar,
+  MenubarContent,
+  MenubarItem,
+  MenubarMenu,
+  MenubarSeparator,
+  MenubarTrigger,
+} from "@/components/ui/menubar";
 
 const workflowSteps = [
   { key: "draft", label: "Borrador" },
@@ -73,12 +88,15 @@ export default function TaskDetailPage() {
     }
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
-    return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
+    return `${hours.toString().padStart(2, "0")}:${minutes
+      .toString()
+      .padStart(2, "0")}`;
   };
 
   const handleWorkLogAdded = (newWorkLog: WorkLog) => {
     const updatedLogs = [newWorkLog, ...workLogs].sort(
-      (a, b) => new Date(b.dateWorked).getTime() - new Date(a.dateWorked).getTime()
+      (a, b) =>
+        new Date(b.dateWorked).getTime() - new Date(a.dateWorked).getTime()
     );
     setWorkLogs(updatedLogs);
     setTotalTimeSpent(calculateTotalTime(updatedLogs));
@@ -112,7 +130,7 @@ export default function TaskDetailPage() {
         projectId: data.projectId?.toString() || "",
         assignedToId: data.assignedToId?.toString() || "",
         category: data.category || "",
-        status: data.status || "pending",
+        status: data.status || "draft",
         priority: data.priority || "medium",
         timeEstimated: data.timeEstimated || "",
         timeSpent: data.timeSpent || "",
@@ -315,26 +333,43 @@ export default function TaskDetailPage() {
   return (
     <div className="h-full flex flex-col">
       <div className="border-b bg-muted/30 px-4 py-2 flex items-center justify-between gap-4">
-        <div className="flex gap-2">
+        <ButtonGroup>
           <Button variant="outline" size="sm" onClick={() => router.back()}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Volver
+            <ArrowLeft className="h-4 w-4" />
           </Button>
-          <Button
-            size="sm"
-            onClick={handleSave}
-            
-            disabled={saving || !hasChanges}
-            className="bg-green-600 hover:bg-green-700 disabled:opacity-50"
-          >
-            <Save className="h-4 w-4 mr-2" />
-            {saving ? "Guardando..." : "Guardar"}
-          </Button>
-          <Button variant="destructive" size="sm" onClick={handleDelete}>
-            <Trash2 className="h-4 w-4 mr-2" />
-            Eliminar
-          </Button>
-        </div>
+
+          <Menubar>
+            <MenubarMenu>
+              <MenubarTrigger className="h-4 w-4">
+                <List className="h-4 w-4" />
+              </MenubarTrigger>
+              <MenubarContent>
+                <MenubarItem>
+                  <Button
+                    size="sm"
+                    onClick={handleSave}
+                    disabled={saving || !hasChanges}
+                    className="bg-green-600 hover:bg-green-700 disabled:opacity-50"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {saving ? "Guardando..." : "Guardar"}
+                  </Button>
+                </MenubarItem>
+                <MenubarSeparator />
+                <MenubarItem>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleDelete}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Eliminar
+                  </Button>
+                </MenubarItem>
+              </MenubarContent>
+            </MenubarMenu>
+          </Menubar>
+        </ButtonGroup>
 
         <TaskDetailWorkflowHeader
           currentStatus={formData.status}
