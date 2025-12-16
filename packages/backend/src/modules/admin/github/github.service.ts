@@ -58,7 +58,6 @@ export class GitHubService {
     return this.fetchGitHub(url);
   }
 
-  // Obtiene info de un repositorio
   async getRepoInfo(owner: string, repo: string) {
     return this.fetchGitHub(`https://api.github.com/repos/${owner}/${repo}`);
   }
