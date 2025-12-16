@@ -21,6 +21,9 @@ import { userRoutes as userRouter } from "../modules/admin/users";
 import { projectRoutes as projectRouter } from "../modules/admin/projects";
 import { settingRoutes as settingRouter } from "../modules/admin/settings";
 import { coolifyRoutes as coolifyRouter } from "../modules/admin/coolify";
+import { calendarRoutes as calendarRouter } from "../modules/admin";
+import { workLogRoutes as workLogRouter } from "../modules/admin";
+import { githubRoutes as githubRouter } from "../modules/admin";
 
 // Admin Routes (Only accessible if NOT a portal)
 router.use("/admin", (req, res, next) => {
@@ -38,6 +41,9 @@ router.use("/admin/tasks", taskRouter);
 router.use("/admin/users", userRouter);
 router.use("/admin/projects", projectRouter);
 router.use("/admin/leads", leadRouter);
+router.use("/admin/calendar", calendarRouter);
+router.use("/admin/worklogs", workLogRouter);
+router.use("/admin/github", githubRouter);
 
 // Portal Routes (Only accessible if IS a portal)
 router.use("/portal", (req, res, next) => {

@@ -59,6 +59,46 @@ export class ProjectService {
       orderBy: { name: "asc" },
     });
   }
+
+  async update(id: number, data: { githubRepo?: string | null }) {
+    return prisma.project.update({
+      where: { id },
+      data,
+      include: {
+        client: {
+          select: { id: true, name: true, slug: true },
+        },
+        _count: {
+          select: { tasks: true },
+        },
+      },
+    });
+  }
+
+  async create(data: {
+    name: string;
+    description?: string;
+    clientId: number;
+    githubRepo?: string;
+  }) {
+    return prisma.project.create({
+      data: {
+        name: data.name,
+        description: data.description || null,
+        clientId: data.clientId,
+        githubRepo: data.githubRepo || null,
+        status: "active",
+      },
+      include: {
+        client: {
+          select: { id: true, name: true, slug: true },
+        },
+        _count: {
+          select: { tasks: true },
+        },
+      },
+    });
+  }
 }
 
 export const projectService = new ProjectService();

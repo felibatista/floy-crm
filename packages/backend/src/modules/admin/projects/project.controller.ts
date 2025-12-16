@@ -41,6 +41,41 @@ export class ProjectController {
       res.status(500).json({ error: error.message });
     }
   }
+
+  async update(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { githubRepo } = req.body;
+
+      const project = await projectService.update(parseInt(id), { githubRepo });
+      res.json(project);
+    } catch (error: any) {
+      console.error("[ProjectController] update error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  async create(req: Request, res: Response) {
+    try {
+      const { name, description, clientId, githubRepo } = req.body;
+
+      if (!name || !clientId) {
+        return res.status(400).json({ error: "Nombre y clientId son requeridos" });
+      }
+
+      const project = await projectService.create({
+        name,
+        description,
+        clientId: parseInt(clientId),
+        githubRepo,
+      });
+
+      res.status(201).json(project);
+    } catch (error: any) {
+      console.error("[ProjectController] create error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  }
 }
 
 export const projectController = new ProjectController();

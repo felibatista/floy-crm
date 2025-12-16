@@ -18,8 +18,10 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  groups        Group[]
-  assignedTasks Task[]
+  groups          Group[]
+  assignedTasks   Task[]
+  calendarEvents  CalendarEvent[]
+  workLogs        WorkLog[]
 }
 
 model Group {
@@ -116,6 +118,9 @@ model Project {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // GitHub Integration
+  githubRepo  String?   // formato: owner/repo (ej: "anthropics/claude-code")
+
   client      Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
   tasks       Task[]
   payments    Payment[]
@@ -190,6 +195,7 @@ model Task {
   ticket      Ticket?  @relation(fields: [ticketId], references: [id])
   assignedTo  User?    @relation(fields: [assignedToId], references: [id])
   commits     Commit[]
+  workLogs    WorkLog[]
 }
 
 model Commit {
@@ -197,8 +203,10 @@ model Commit {
   taskId      Int
   message     String
   author      String
-  hash        String?
-  repository  String?
+  hash        String   @unique  // SHA del commit
+  repository  String   // owner/repo
+  url         String?  // URL al commit en GitHub
+  committedAt DateTime // Fecha del commit en GitHub
   createdAt   DateTime @default(now())
 
   task        Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
@@ -293,4 +301,59 @@ model Setting {
   isSystem    Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// --- GITHUB INTEGRATION ---
+
+model GitHubSyncLog {
+  id            Int      @id @default(autoincrement())
+  repository    String   // owner/repo
+  status        String   // success, error
+  commitsFound  Int      @default(0)
+  commitsLinked Int      @default(0)
+  errorMessage  String?
+  startedAt     DateTime @default(now())
+  finishedAt    DateTime?
+}
+
+model CalendarEvent {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  title       String
+  description String?
+  date        DateTime @db.Date
+  isAllDay    Boolean  @default(false)
+  startTime   String?  // HH:mm format
+  endTime     String?  // HH:mm format
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// --- WORK LOGS (Registro de trabajo en tareas) ---
+
+enum WorkLogType {
+  desarrollo
+  gestion
+  testing
+  documentacion
+  reunion
+  otro
+}
+
+model WorkLog {
+  id          Int         @id @default(autoincrement())
+  taskId      Int
+  userId      Int
+  summary     String      // Resumen del trabajo realizado
+  hours       Int         // Horas trabajadas (ej: 2)
+  minutes     Int         @default(0) // Minutos trabajados (ej: 30)
+  type        WorkLogType @default(desarrollo)
+  dateWorked  DateTime    @default(now()) // Fecha del trabajo
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  task        Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id])
 }

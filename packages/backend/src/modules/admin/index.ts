@@ -7,3 +7,6 @@ export * from "./users";
 export * from "./projects";
 export * from "./settings";
 export * from "./coolify";
+export * from "./calendar";
+export * from "./worklogs";
+export * from "./github";

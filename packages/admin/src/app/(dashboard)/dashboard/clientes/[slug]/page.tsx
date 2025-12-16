@@ -33,12 +33,18 @@ import {
   FolderOpen,
   Ticket,
   Globe,
+  Github,
+  Check,
+  X,
+  Pencil,
+  Plus,
 } from "lucide-react";
 
 interface Project {
   id: number;
   name: string;
   status: string;
+  githubRepo: string | null;
   createdAt: string;
 }
 
@@ -80,6 +86,18 @@ export default function ClienteDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // GitHub repo editing state
+  const [editingProjectId, setEditingProjectId] = useState<number | null>(null);
+  const [editingRepoValue, setEditingRepoValue] = useState("");
+  const [savingRepo, setSavingRepo] = useState(false);
+
+  // Create project modal state
+  const [createProjectOpen, setCreateProjectOpen] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
+  const [newProjectDescription, setNewProjectDescription] = useState("");
+  const [newProjectGithubRepo, setNewProjectGithubRepo] = useState("");
+  const [creatingProject, setCreatingProject] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -191,6 +209,116 @@ export default function ClienteDetailPage() {
     } catch (err: any) {
       setError(err.message);
       setDeleting(false);
+    }
+  };
+
+  const handleEditRepo = (project: Project) => {
+    setEditingProjectId(project.id);
+    setEditingRepoValue(project.githubRepo || "");
+  };
+
+  const handleCancelEditRepo = () => {
+    setEditingProjectId(null);
+    setEditingRepoValue("");
+  };
+
+  const handleSaveRepo = async (projectId: number) => {
+    setSavingRepo(true);
+    try {
+      const token = localStorage.getItem("admin_token");
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/admin/projects/${projectId}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ githubRepo: editingRepoValue || null }),
+        }
+      );
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Error al guardar repositorio");
+      }
+
+      // Update local state
+      if (client) {
+        setClient({
+          ...client,
+          projects: client.projects.map((p) =>
+            p.id === projectId
+              ? { ...p, githubRepo: editingRepoValue || null }
+              : p
+          ),
+        });
+      }
+      setEditingProjectId(null);
+      setEditingRepoValue("");
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSavingRepo(false);
+    }
+  };
+
+  const handleCreateProject = async () => {
+    if (!client || !newProjectName.trim()) return;
+
+    setCreatingProject(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem("admin_token");
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/admin/projects`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: newProjectName.trim(),
+            description: newProjectDescription.trim() || null,
+            clientId: client.id,
+            githubRepo: newProjectGithubRepo.trim() || null,
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Error al crear proyecto");
+      }
+
+      const newProject = await res.json();
+
+      // Update local state
+      setClient({
+        ...client,
+        projects: [...client.projects, {
+          id: newProject.id,
+          name: newProject.name,
+          status: newProject.status,
+          githubRepo: newProject.githubRepo,
+          createdAt: newProject.createdAt,
+        }],
+        _count: {
+          ...client._count,
+          projects: client._count.projects + 1,
+        },
+      });
+
+      // Reset form and close modal
+      setNewProjectName("");
+      setNewProjectDescription("");
+      setNewProjectGithubRepo("");
+      setCreateProjectOpen(false);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setCreatingProject(false);
     }
   };
 
@@ -470,23 +598,142 @@ export default function ClienteDetailPage() {
             {/* Projects */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FolderOpen className="h-4 w-4" />
-                  Proyectos ({client?.projects.length || 0})
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <FolderOpen className="h-4 w-4" />
+                    Proyectos ({client?.projects.length || 0})
+                  </CardTitle>
+                  <Dialog open={createProjectOpen} onOpenChange={setCreateProjectOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Plus className="h-4 w-4 mr-1" />
+                        Nuevo
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Crear nuevo proyecto</DialogTitle>
+                        <DialogDescription>
+                          Ingresa los datos del nuevo proyecto para {client?.name}
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="projectName">Nombre *</Label>
+                          <Input
+                            id="projectName"
+                            value={newProjectName}
+                            onChange={(e) => setNewProjectName(e.target.value)}
+                            placeholder="Nombre del proyecto"
+                            disabled={creatingProject}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="projectDescription">Descripción</Label>
+                          <Textarea
+                            id="projectDescription"
+                            value={newProjectDescription}
+                            onChange={(e) => setNewProjectDescription(e.target.value)}
+                            placeholder="Descripción del proyecto (opcional)"
+                            rows={3}
+                            disabled={creatingProject}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="projectGithubRepo">Repositorio GitHub</Label>
+                          <div className="flex items-center gap-2">
+                            <Github className="h-4 w-4 text-muted-foreground" />
+                            <Input
+                              id="projectGithubRepo"
+                              value={newProjectGithubRepo}
+                              onChange={(e) => setNewProjectGithubRepo(e.target.value)}
+                              placeholder="owner/repo"
+                              disabled={creatingProject}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button
+                          variant="outline"
+                          onClick={() => setCreateProjectOpen(false)}
+                          disabled={creatingProject}
+                        >
+                          Cancelar
+                        </Button>
+                        <Button
+                          onClick={handleCreateProject}
+                          disabled={creatingProject || !newProjectName.trim()}
+                        >
+                          {creatingProject ? "Creando..." : "Crear proyecto"}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </CardHeader>
               <CardContent>
                 {client?.projects.length === 0 ? (
                   <p className="text-xs text-muted-foreground">Sin proyectos</p>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {client?.projects.map((project) => (
                       <div
                         key={project.id}
-                        className="flex items-center justify-between p-2 rounded-md border text-xs"
+                        className="p-3 rounded-md border text-xs space-y-2"
                       >
-                        <span className="font-medium">{project.name}</span>
-                        {getStatusBadge(project.status)}
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">{project.name}</span>
+                          {getStatusBadge(project.status)}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Github className="h-3 w-3 text-muted-foreground" />
+                          {editingProjectId === project.id ? (
+                            <div className="flex items-center gap-2 flex-1">
+                              <Input
+                                value={editingRepoValue}
+                                onChange={(e) =>
+                                  setEditingRepoValue(e.target.value)
+                                }
+                                placeholder="owner/repo"
+                                className="h-7 text-xs flex-1"
+                                disabled={savingRepo}
+                              />
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={() => handleSaveRepo(project.id)}
+                                disabled={savingRepo}
+                              >
+                                <Check className="h-3 w-3 text-green-600" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={handleCancelEditRepo}
+                                disabled={savingRepo}
+                              >
+                                <X className="h-3 w-3 text-destructive" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 flex-1">
+                              <span className="text-muted-foreground">
+                                {project.githubRepo || "Sin repositorio"}
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={() => handleEditRepo(project)}
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
