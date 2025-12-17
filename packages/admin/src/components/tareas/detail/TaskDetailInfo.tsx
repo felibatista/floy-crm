@@ -1,6 +1,8 @@
 "use client";
 
-import { Copy } from "lucide-react";
+import { useState } from "react";
+import { Copy, Check } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +50,15 @@ export function TaskDetailInfo({
   onCopyCode,
   totalTimeSpent = "00:00",
 }: TaskDetailInfoProps) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyCode = () => {
+    onCopyCode();
+    setCopied(true);
+    toast.success("Código copiado al portapapeles");
+    setTimeout(() => setCopied(false), 5000);
+  };
+
   return (
     <>
       {/* Título y código */}
@@ -57,51 +68,28 @@ export function TaskDetailInfo({
             <Input
               value={formData.title}
               onChange={(e) => onFieldChange("title", e.target.value)}
-              className="text-2xl font-bold mb-2 h-auto py-1 px-2"
+              className="text-2xl font-bold mb-1 h-auto py-1 px-2"
               placeholder="Título de la tarea"
             />
           ) : (
-            <h1 className="text-2xl font-bold mb-2">{formData.title}</h1>
+            <h1 className="text-2xl font-bold mb-1">{formData.title}</h1>
           )}
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <span>
-              Proyecto:{" "}
-              {isDraft ? (
-                <Select
-                  value={formData.projectId}
-                  onValueChange={(v) => onFieldChange("projectId", v)}
-                >
-                  <SelectTrigger className="w-[200px] h-7 inline-flex ml-1">
-                    <SelectValue placeholder="Seleccionar proyecto" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {projects.map((p) => (
-                      <SelectItem key={p.id} value={p.id.toString()}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <span className="text-foreground">{task?.project?.name}</span>
-              )}
-            </span>
-          </div>
-        </div>
-        <div className="text-right">
-          <div className="text-xs text-muted-foreground mb-1">Tarea</div>
-          <div className="flex items-center gap-2">
-            <span className="font-mono font-bold text-lg">
-              {task?.code.slice(-8).toUpperCase()}
-            </span>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={onCopyCode}
-            >
-              <Copy className="h-3 w-3" />
-            </Button>
+          <div className="text-right items-start">
+            <div className="flex items-center gap-2">
+              <span className="font-mono font-bold text-lg">{task?.code}</span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={handleCopyCode}
+              >
+                {copied ? (
+                  <Check className="h-3 w-3" />
+                ) : (
+                  <Copy className="h-3 w-3" />
+                )}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -110,6 +98,10 @@ export function TaskDetailInfo({
       <div className="grid md:grid-cols-2 gap-x-12 gap-y-3 mb-6 text-xs">
         {/* Columna izquierda */}
         <div className="space-y-3">
+          <div className="flex items-center">
+            <span className="w-40 text-muted-foreground">Proyecto</span>[
+            {task?.project?.client?.name}] {task?.project?.name}
+          </div>
           <div className="flex items-center">
             <span className="w-40 text-muted-foreground">Categoría</span>
             {isDraft ? (
@@ -175,12 +167,6 @@ export function TaskDetailInfo({
               {task?.createdAt &&
                 new Date(task.createdAt).toLocaleDateString("es-AR")}
             </span>
-          </div>
-          <div className="flex items-center">
-            <span className="w-40 text-muted-foreground">Estado</span>
-            <Badge className={statusInfo.color + " text-white"}>
-              {statusInfo.label}
-            </Badge>
           </div>
           <div className="flex items-center">
             <span className="w-40 text-muted-foreground">Prioridad</span>

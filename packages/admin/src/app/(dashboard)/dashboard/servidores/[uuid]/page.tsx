@@ -91,18 +91,18 @@ export default function ProjectDetailPage() {
       {
         variant:
           | "default"
-          | "secondary"
           | "destructive"
           | "outline"
           | "yellow"
           | "blue"
-          | "green"
+          | "success"
           | "orange"
-          | "purple";
+          | "purple"
+          | "info";
         label: string;
       }
     > = {
-      running: { variant: "green", label: "Activo" },
+      running: { variant: "success", label: "Activo" },
       exited: { variant: "destructive", label: "Detenido" },
       stopped: { variant: "destructive", label: "Detenido" },
       starting: { variant: "blue", label: "Iniciando" },

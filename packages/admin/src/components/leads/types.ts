@@ -47,18 +47,19 @@ export const statusConfig: Record<
     label: string;
     variant:
       | "default"
-      | "secondary"
-      | "outline"
       | "destructive"
+      | "outline"
+      | "yellow"
       | "blue"
-      | "purple"
+      | "success"
       | "orange"
-      | "green";
+      | "purple"
+      | "info";
   }
 > = {
   new: { label: "Nuevo", variant: "blue" },
   contacted: { label: "Contactado", variant: "purple" },
   qualified: { label: "Calificado", variant: "orange" },
-  converted: { label: "Convertido", variant: "green" },
+  converted: { label: "Convertido", variant: "success" },
   lost: { label: "Perdido", variant: "destructive" },
 };

@@ -86,7 +86,7 @@ function ClientRow({ client }: { client: Client }) {
       </TableCell>
       <TableCell>
         {client.isPortalEnabled ? (
-          <Badge variant="green" className="gap-1">
+          <Badge variant="success" className="gap-1">
             <Globe className="h-3 w-3" />
             Activo
           </Badge>

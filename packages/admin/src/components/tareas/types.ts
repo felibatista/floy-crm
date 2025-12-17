@@ -7,6 +7,7 @@ export interface User {
 export interface Project {
   id: number;
   name: string;
+  client: { name: string | null };
 }
 
 export interface Task {
@@ -68,21 +69,21 @@ export const statusMap: Record<
   {
     variant:
       | "default"
-      | "secondary"
       | "destructive"
       | "outline"
       | "yellow"
       | "blue"
-      | "green"
+      | "success"
       | "orange"
-      | "purple";
+      | "purple"
+      | "info";
     label: string;
   }
 > = {
-  draft: { variant: "secondary", label: "Borrador" },
+  draft: { variant: "default", label: "Borrador" },
   pending: { variant: "yellow", label: "Pendiente" },
   in_progress: { variant: "blue", label: "En progreso" },
-  completed: { variant: "green", label: "Completada" },
+  completed: { variant: "success", label: "Completada" },
   cancelled: { variant: "destructive", label: "Cancelada" },
 };
 

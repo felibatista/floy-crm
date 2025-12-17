@@ -246,7 +246,7 @@ export default function TaskDetailPage() {
 
   const copyCode = () => {
     if (task?.code) {
-      navigator.clipboard.writeText(task.code.slice(-8).toUpperCase());
+      navigator.clipboard.writeText("[" + task.code + "] - " + task.title);
     }
   };
 

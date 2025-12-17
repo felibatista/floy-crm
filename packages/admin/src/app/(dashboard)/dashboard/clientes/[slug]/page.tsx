@@ -331,24 +331,24 @@ export default function ClienteDetailPage() {
       {
         variant:
           | "default"
-          | "secondary"
           | "destructive"
           | "outline"
           | "yellow"
           | "blue"
-          | "green"
+          | "success"
           | "orange"
-          | "purple";
+          | "purple"
+          | "info";
         label: string;
       }
     > = {
-      active: { variant: "green", label: "Activo" },
+      active: { variant: "success", label: "Activo" },
       paused: { variant: "yellow", label: "Pausado" },
       completed: { variant: "purple", label: "Completado" },
       cancelled: { variant: "destructive", label: "Cancelado" },
       open: { variant: "blue", label: "Abierto" },
       in_progress: { variant: "orange", label: "En progreso" },
-      resolved: { variant: "green", label: "Resuelto" },
+      resolved: { variant: "success", label: "Resuelto" },
       closed: { variant: "outline", label: "Cerrado" },
     };
     const info = statusMap[status] || { variant: "outline", label: status };

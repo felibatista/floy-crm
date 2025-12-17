@@ -122,7 +122,7 @@ export class TaskService {
       where: { code },
       include: {
         project: {
-          select: { id: true, name: true },
+          select: { id: true, name: true, client: { select: { name: true } } },
         },
         assignedTo: {
           select: { id: true, name: true, email: true },

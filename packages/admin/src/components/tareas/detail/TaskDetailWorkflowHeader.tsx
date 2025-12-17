@@ -19,7 +19,7 @@ export function TaskDetailWorkflowHeader({
   onStatusChange,
 }: TaskDetailWorkflowHeaderProps) {
   return (
-    <div className="flex items-center gap-1 overflow-x-auto">
+    <div className="flex items-center gap-1">
       {workflowSteps.map((step, index) => {
         const isDisabled = step.key === "draft" && currentStatus !== "draft";
         return (
@@ -28,7 +28,7 @@ export function TaskDetailWorkflowHeader({
             <Badge
               variant={currentStatus === step.key ? "blue" : "outline"}
               className={`whitespace-nowrap transition-all ${
-                currentStatus === step.key ? "ring-2 ring-blue-300" : ""
+                currentStatus === step.key ? "ring-1 ring-blue-300" : ""
               } ${
                 isDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
               }`}
