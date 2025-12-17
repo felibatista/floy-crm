@@ -5,13 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  ArrowLeft,
-  Save,
-  Trash2,
-  GitCommit,
-  List
-} from "lucide-react";
+import { ArrowLeft, Save, Trash2, GitCommit, List } from "lucide-react";
 import {
   Task,
   User,
@@ -338,31 +332,37 @@ export default function TaskDetailPage() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
 
-          <Menubar>
+          <Menubar className="border-0 p-0 h-auto rounded-none">
             <MenubarMenu>
-              <MenubarTrigger className="h-4 w-4">
-                <List className="h-4 w-4" />
+              <MenubarTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="px-2 border-l-0 rounded-l-none"
+                >
+                  <List className="h-4 w-4" />
+                </Button>
               </MenubarTrigger>
               <MenubarContent>
-                <MenubarItem>
+                <MenubarItem asChild>
                   <Button
                     size="sm"
+                    variant="ghost"
                     onClick={handleSave}
                     disabled={saving || !hasChanges}
-                    className="bg-green-600 hover:bg-green-700 disabled:opacity-50"
+                    className="w-full justify-start disabled:opacity-50"
                   >
-                    <Save className="h-4 w-4 mr-2" />
                     {saving ? "Guardando..." : "Guardar"}
                   </Button>
                 </MenubarItem>
                 <MenubarSeparator />
-                <MenubarItem>
+                <MenubarItem asChild>
                   <Button
-                    variant="destructive"
                     size="sm"
+                    variant="ghost"
                     onClick={handleDelete}
+                    className="w-full justify-start"
                   >
-                    <Trash2 className="h-4 w-4 mr-2" />
                     Eliminar
                   </Button>
                 </MenubarItem>
