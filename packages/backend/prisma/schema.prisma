@@ -120,6 +120,12 @@ model Project {
   // GitHub Integration
   githubRepo  String?   // formato: owner/repo (ej: "anthropics/claude-code")
 
+  // Payment tracking
+  totalAmount     Decimal?  @db.Decimal(12, 2)  // Monto total del proyecto
+  paidAmount      Decimal   @default(0) @db.Decimal(12, 2)  // Monto pagado
+  currency        String    @default("ARS")
+  paymentDueDate  DateTime? // Fecha límite de pago
+
   client      Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
   tasks       Task[]
   payments    Payment[]

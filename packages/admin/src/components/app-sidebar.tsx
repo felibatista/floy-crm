@@ -10,6 +10,8 @@ import {
   Users,
   UserRoundPlus,
   CheckSquare,
+  FolderKanban,
+  MessageSquare,
 } from "lucide-react";
 
 import { NavMain } from "@/components/nav-main";
@@ -34,6 +36,16 @@ const data = {
       icon: CheckSquare,
     },
     {
+      title: "Chats",
+      url: "/dashboard/chats",
+      icon: MessageSquare,
+    },
+    {
+      title: "Proyectos",
+      url: "/dashboard/proyectos",
+      icon: FolderKanban,
+    },
+    {
       title: "Clientes",
       url: "/dashboard/clientes",
       icon: Users,
@@ -48,11 +60,11 @@ const data = {
       url: "/dashboard/github",
       icon: Github,
     },
-    {
-      title: "Archivos",
-      url: "/dashboard/archivos",
-      icon: File,
-    },
+    // {
+    //   title: "Archivos",
+    //   url: "/dashboard/archivos",
+    //   icon: File,
+    // },
     {
       title: "Servidores",
       url: "/dashboard/servidores",
