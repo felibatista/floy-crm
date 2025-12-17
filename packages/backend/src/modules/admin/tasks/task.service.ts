@@ -1,4 +1,4 @@
-import { TaskStatus, TaskPriority, Prisma } from "../../../../prisma/generated";
+import { TaskStatus, TaskPriority, Prisma } from "@prisma/client";
 import { prisma } from "../../../lib/prisma";
 
 interface ListTasksParams {

@@ -1,4 +1,4 @@
-import { WorkLogType, Prisma } from "../../../../prisma/generated";
+import { WorkLogType, Prisma } from "@prisma/client";
 import { prisma } from "../../../lib/prisma";
 
 interface ListWorkLogsParams {

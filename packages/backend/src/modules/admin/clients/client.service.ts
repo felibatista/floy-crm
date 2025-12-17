@@ -1,5 +1,5 @@
 import { prisma } from "../../../lib/prisma";
-import { Prisma } from "../../../../prisma/generated";
+import { Prisma } from "@prisma/client";
 
 interface ListClientsParams {
   page?: number;
