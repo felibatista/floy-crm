@@ -11,7 +11,9 @@ import {
   Pagination,
   ClientFormData,
   initialFormData,
-} from "@/components/clientes";
+} from "@/components/clients";
+import { useAuth } from "@/context";
+import ClientsErrorPage from "@/components/clients/ClientsPageError";
 
 export default function ClientesPage() {
   const [clients, setClients] = useState<Client[]>([]);
@@ -25,22 +27,22 @@ export default function ClientesPage() {
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  // Filter state
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
   const [filterPortal, setFilterPortal] = useState<string>("all");
 
-  // Form state
   const [formData, setFormData] = useState<ClientFormData>(initialFormData);
   const [creating, setCreating] = useState(false);
+
+  const { user, token } = useAuth();
 
   const fetchClients = useCallback(
     async (page = 1) => {
       setLoading(true);
       setError(null);
       try {
-        const token = localStorage.getItem("admin_token");
         const params = new URLSearchParams({ page: String(page), limit: "50" });
+
         if (debouncedSearch) params.append("search", debouncedSearch);
         if (filterPortal !== "all")
           params.append("isPortalEnabled", filterPortal);
@@ -63,12 +65,14 @@ export default function ClientesPage() {
         setLoading(false);
       }
     },
-    [debouncedSearch, filterPortal]
+    [debouncedSearch, filterPortal, token]
   );
 
   useEffect(() => {
-    fetchClients();
-  }, [fetchClients]);
+    if (token) {
+      fetchClients();
+    }
+  }, [fetchClients, token]);
 
   const generateSlug = (name: string) => {
     return name
@@ -92,7 +96,6 @@ export default function ClientesPage() {
 
     setCreating(true);
     try {
-      const token = localStorage.getItem("admin_token");
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/admin/clients`,
         {
@@ -120,14 +123,10 @@ export default function ClientesPage() {
     }
   };
 
+  if (error) return <ClientsErrorPage />;
+
   return (
     <div className="h-full flex flex-col">
-      {error && (
-        <div className="bg-destructive/15 text-destructive px-4 py-3 rounded-md mb-4">
-          {error}
-        </div>
-      )}
-
       <div className="flex items-center justify-between p-2">
         <ClientCreateDialog
           open={dialogOpen}

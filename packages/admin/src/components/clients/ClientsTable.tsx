@@ -75,9 +75,6 @@ function ClientRow({ client }: { client: Client }) {
       <TableCell className="text-muted-foreground">
         {client.email || "-"}
       </TableCell>
-      <TableCell className="font-mono text-muted-foreground">
-        {client.slug}
-      </TableCell>
       <TableCell>
         <Badge variant="outline">{client._count.projects}</Badge>
       </TableCell>
@@ -106,7 +103,6 @@ export function ClientsTable({ clients, loading }: ClientsTableProps) {
           <TableRow>
             <TableHead>Nombre</TableHead>
             <TableHead>Email</TableHead>
-            <TableHead>Slug</TableHead>
             <TableHead>Proyectos</TableHead>
             <TableHead>Tickets</TableHead>
             <TableHead>Portal</TableHead>

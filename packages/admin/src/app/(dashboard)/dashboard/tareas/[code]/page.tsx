@@ -350,7 +350,7 @@ export default function TaskDetailPage() {
                     variant="ghost"
                     onClick={handleSave}
                     disabled={saving || !hasChanges}
-                    className="w-full justify-start disabled:opacity-50"
+                    className="w-full justify-start disabled:opacity-50 text-xs"
                   >
                     {saving ? "Guardando..." : "Guardar"}
                   </Button>
@@ -361,7 +361,7 @@ export default function TaskDetailPage() {
                     size="sm"
                     variant="ghost"
                     onClick={handleDelete}
-                    className="w-full justify-start"
+                    className="w-full justify-start text-xs"
                   >
                     Eliminar
                   </Button>
