@@ -1,5 +1,7 @@
 "use client";
 
+import { useRef } from "react";
+import confetti from "canvas-confetti";
 import { Badge } from "@/components/ui/badge";
 
 interface WorkflowStep {
@@ -18,12 +20,47 @@ export function TaskDetailWorkflowHeader({
   workflowSteps,
   onStatusChange,
 }: TaskDetailWorkflowHeaderProps) {
+  const completedBadgeRef = useRef<HTMLDivElement>(null);
+
+  const triggerConfetti = () => {
+    if (!completedBadgeRef.current) return;
+
+    const rect = completedBadgeRef.current.getBoundingClientRect();
+    const x = (rect.left + rect.width / 2) / window.innerWidth;
+    const y = (rect.top - 50 +rect.height / 2) / window.innerHeight;
+
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { x, y },
+      angle: 230,
+      gravity: 0.2,
+      colors: ["#22c55e", "#16a34a", "#15803d", "#facc15", "#fbbf24"],
+    });
+  };
+
+  const handleStatusClick = (stepKey: string, isDisabled: boolean) => {
+    if (isDisabled) return;
+
+    if (stepKey === "completed" && currentStatus !== "completed") {
+      triggerConfetti();
+    }
+
+    onStatusChange(stepKey);
+  };
+
   return (
     <div className="flex items-center gap-1">
       {workflowSteps.map((step, index) => {
         const isDisabled = step.key === "draft" && currentStatus !== "draft";
+        const isCompleted = step.key === "completed";
+
         return (
-          <div key={step.key} className="flex items-center gap-1">
+          <div
+            key={step.key}
+            className="flex items-center gap-1"
+            ref={isCompleted ? completedBadgeRef : undefined}
+          >
             {index > 0 && <span className="text-muted-foreground mx-1">→</span>}
             <Badge
               variant={currentStatus === step.key ? "blue" : "outline"}
@@ -32,7 +69,7 @@ export function TaskDetailWorkflowHeader({
               } ${
                 isDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
               }`}
-              onClick={() => !isDisabled && onStatusChange(step.key)}
+              onClick={() => handleStatusClick(step.key, isDisabled)}
             >
               {step.label}
             </Badge>
