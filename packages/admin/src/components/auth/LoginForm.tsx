@@ -1,4 +1,6 @@
 import { Input } from "@/components/ui/input";
+import { EyeOff, Eye } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const LoginForm = ({
   email,

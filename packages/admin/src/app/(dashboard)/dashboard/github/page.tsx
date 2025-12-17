@@ -305,7 +305,7 @@ export default function GitHubPage() {
                     className="flex items-center justify-between p-3 border rounded-lg"
                   >
                     <code className="text-sm">{repo.repository}</code>
-                    <Badge variant="secondary">{repo.count} commits</Badge>
+                    <Badge>{repo.count} commits</Badge>
                   </div>
                 ))}
               </div>
@@ -354,7 +354,7 @@ export default function GitHubPage() {
                           Error
                         </Badge>
                       ) : (
-                        <Badge variant="secondary">
+                        <Badge>
                           <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
                           Ejecutando
                         </Badge>

@@ -52,13 +52,13 @@ const statusConfig: Record<
   LeadStatus,
   {
     label: string;
-    variant: "default" | "secondary" | "outline" | "destructive";
+    variant: "default" | "info" | "success" | "outline" | "destructive";
   }
 > = {
-  new: { label: "Nuevo", variant: "default" },
-  contacted: { label: "Contactado", variant: "secondary" },
+  new: { label: "Nuevo", variant: "info" },
+  contacted: { label: "Contactado", variant: "default" },
   qualified: { label: "Calificado", variant: "outline" },
-  converted: { label: "Convertido", variant: "default" },
+  converted: { label: "Convertido", variant: "success" },
   lost: { label: "Perdido", variant: "destructive" },
 };
 
