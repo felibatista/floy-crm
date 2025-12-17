@@ -7,7 +7,7 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Admin | Acentus",
-  description: "Admin panel for Floy CRM",
+  description: "Control total de Acentus en un solo lugar",
 };
 
 export default function RootLayout({
