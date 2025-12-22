@@ -104,14 +104,13 @@ export function ClientCreateDialog({
 
           <div className="space-y-2">
             <Label htmlFor="address">Dirección</Label>
-            <Textarea
+            <Input
               id="address"
               value={formData.address}
               onChange={(e) =>
                 onFormChange({ ...formData, address: e.target.value })
               }
               placeholder="Dirección completa"
-              rows={2}
             />
           </div>
 
@@ -129,10 +128,10 @@ export function ClientCreateDialog({
                       .replace(/[^a-z0-9-]/g, ""),
                   })
                 }
-                placeholder="mi-cliente"
+                placeholder="cliente"
               />
               <p className="text-xs text-muted-foreground">
-                {formData.slug}.tudominio.com
+                {formData.slug}.acentus.com.ar
               </p>
             </div>
 

@@ -328,7 +328,7 @@ export default function LeadDetailPage() {
                       placeholder="mi-cliente"
                     />
                     <p className="text-xs text-muted-foreground">
-                      {convertData.slug}.tudominio.com
+                      {convertData.slug}.acentus.com.ar
                     </p>
                   </div>
 
