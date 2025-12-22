@@ -51,7 +51,11 @@ export function SiteHeader() {
       href += `/${parts[i]}`;
       const raw = parts[i];
       const label = labelMap[raw] ?? decodeURIComponent(raw);
-      acc.push({ href, label, current: i === parts.length - 1 });
+      acc.push({
+        href,
+        label: label.charAt(0).toUpperCase() + label.slice(1),
+        current: i === parts.length - 1,
+      });
     }
     return acc;
   }, [pathname]);
