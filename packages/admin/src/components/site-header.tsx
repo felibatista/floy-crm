@@ -27,10 +27,16 @@ export function SiteHeader() {
       clientes: "Clientes",
       leads: "Leads",
       tareas: "Tareas",
+      proyectos: "Proyectos",
       github: "GitHub",
       archivos: "Archivos",
       servidores: "Servidores",
-      config: "Config",
+      commits: "Commits",
+      agenda: "Agenda",
+      facturacion: "Facturación",
+      worklogs: "Work Logs",
+      chats: "Chats",
+      config: "Configuración",
     };
 
     const parts = (pathname || "/").split("/").filter(Boolean);
