@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { TaskFormData, User, Project } from "./types";
 
 interface TaskCreateDialogProps {
@@ -42,15 +43,61 @@ export function TaskCreateDialog({
   users,
   projects,
 }: TaskCreateDialogProps) {
+  const [clientSearch, setClientSearch] = useState("");
+  const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
+
+  // Get unique clients from projects
+  const clients = useMemo(() => {
+    const clientMap = new Map<number, { id: number; name: string }>();
+    projects.forEach((project) => {
+      if (project.client?.name && project.clientId) {
+        clientMap.set(project.clientId, {
+          id: project.clientId,
+          name: project.client.name,
+        });
+      }
+    });
+    return Array.from(clientMap.values());
+  }, [projects]);
+
+  // Filter clients by search
+  const filteredClients = useMemo(() => {
+    if (!clientSearch) return clients;
+    return clients.filter((client) =>
+      client.name.toLowerCase().includes(clientSearch.toLowerCase())
+    );
+  }, [clients, clientSearch]);
+
+  // Filter projects by selected client
+  const filteredProjects = useMemo(() => {
+    if (!selectedClientId) return [];
+    return projects.filter((project) => project.clientId === selectedClientId);
+  }, [projects, selectedClientId]);
+
+  // Handle client selection
+  const handleClientSelect = (clientId: string) => {
+    setSelectedClientId(parseInt(clientId));
+    onFormChange({ ...formData, projectId: "" }); // Reset project when client changes
+  };
+
+  // Reset when dialog closes
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      setClientSearch("");
+      setSelectedClientId(null);
+    }
+    onOpenChange(newOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button size="sm">
           <Plus className="h-4 w-4 mr-2" />
           Nueva tarea
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Crear nueva tarea</DialogTitle>
         </DialogHeader>
@@ -76,10 +123,45 @@ export function TaskCreateDialog({
                 onFormChange({ ...formData, description: e.target.value })
               }
               placeholder="Descripción de la tarea"
+              rows={4}
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Cliente *</Label>
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+                <Input
+                  placeholder="Buscar cliente..."
+                  value={clientSearch}
+                  onChange={(e) => setClientSearch(e.target.value)}
+                  className="pl-8"
+                />
+              </div>
+              <Select
+                value={selectedClientId?.toString() || ""}
+                onValueChange={handleClientSelect}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar cliente" />
+                </SelectTrigger>
+                <SelectContent>
+                  {filteredClients.length === 0 ? (
+                    <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                      No se encontraron clientes
+                    </div>
+                  ) : (
+                    filteredClients.map((client) => (
+                      <SelectItem key={client.id} value={client.id.toString()}>
+                        {client.name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="space-y-2">
               <Label>Proyecto *</Label>
               <Select
@@ -87,20 +169,29 @@ export function TaskCreateDialog({
                 onValueChange={(v) =>
                   onFormChange({ ...formData, projectId: v })
                 }
+                disabled={!selectedClientId}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar" />
+                  <SelectValue placeholder={selectedClientId ? "Seleccionar proyecto" : "Primero selecciona un cliente"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {projects.map((p) => (
-                    <SelectItem key={p.id} value={p.id.toString()}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
+                  {filteredProjects.length === 0 ? (
+                    <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                      {selectedClientId ? "No hay proyectos para este cliente" : "Selecciona un cliente primero"}
+                    </div>
+                  ) : (
+                    filteredProjects.map((p) => (
+                      <SelectItem key={p.id} value={p.id.toString()}>
+                        {p.name}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
+          </div>
 
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Asignado a</Label>
               <Select
@@ -118,27 +209,6 @@ export function TaskCreateDialog({
                       {u.name}
                     </SelectItem>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Estado</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(v) => onFormChange({ ...formData, status: v })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="draft">Borrador</SelectItem>
-                  <SelectItem value="pending">Pendiente</SelectItem>
-                  <SelectItem value="in_progress">En progreso</SelectItem>
-                  <SelectItem value="completed">Completada</SelectItem>
-                  <SelectItem value="cancelled">Cancelada</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -193,7 +263,7 @@ export function TaskCreateDialog({
           <div className="flex justify-end gap-2 pt-4">
             <Button
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={() => handleOpenChange(false)}
               disabled={creating}
             >
               Cancelar

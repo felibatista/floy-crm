@@ -7,6 +7,7 @@ export interface User {
 export interface Project {
   id: number;
   name: string;
+  clientId: number;
   client: { name: string | null };
 }
 
