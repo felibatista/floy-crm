@@ -1,6 +1,7 @@
 "use client";
 
 import { AgendaCalendar } from "@/components/agenda-calendar";
+import { UpcomingEvents } from "@/components/upcoming-events";
 import { useAuth } from "@/context/auth-context";
 
 export default function DashboardPage() {
@@ -22,8 +23,8 @@ export default function DashboardPage() {
           })}
         </p>
       </div>
-
       <AgendaCalendar />
+      <UpcomingEvents />
     </div>
   );
 }

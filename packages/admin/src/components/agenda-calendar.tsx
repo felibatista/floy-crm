@@ -6,8 +6,9 @@ import { es } from "date-fns/locale";
 import { PlusIcon, Trash2, Clock, CalendarDays } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
+import { Calendar, CalendarDayButton } from "@/components/ui/calendar";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { DayButton } from "react-day-picker";
 import {
   Dialog,
   DialogContent,
@@ -56,6 +57,27 @@ function formatTimeRange(event: CalendarEvent): string {
     return `Desde ${event.startTime}`;
   }
   return "";
+}
+
+interface CustomDayButtonProps extends React.ComponentProps<typeof DayButton> {
+  eventCount: number;
+}
+
+function CustomDayButton({
+  eventCount,
+  day,
+  ...props
+}: CustomDayButtonProps) {
+  return (
+    <CalendarDayButton day={day} {...props}>
+      <span>{day.date.getDate()}</span>
+      {eventCount > 0 && (
+        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[0.6rem] text-primary-foreground">
+          {eventCount}
+        </span>
+      )}
+    </CalendarDayButton>
+  );
 }
 
 export function AgendaCalendar() {
@@ -153,6 +175,17 @@ export function AgendaCalendar() {
       }
     }
     return dates;
+  }, [events]);
+
+  const eventCountByDate = React.useMemo(() => {
+    const countMap = new Map<string, number>();
+
+    for (const event of events) {
+      const dateKey = event.date.split("T")[0];
+      countMap.set(dateKey, (countMap.get(dateKey) || 0) + 1);
+    }
+
+    return countMap;
   }, [events]);
 
   const handleDayClick = (selectedDate: Date | undefined) => {
@@ -279,8 +312,13 @@ export function AgendaCalendar() {
               modifiersStyles={{
                 hasEvents: {
                   fontWeight: "bold",
-                  textDecoration: "underline",
-                  textDecorationColor: "hsl(var(--primary))",
+                },
+              }}
+              components={{
+                DayButton: (props) => {
+                  const dateKey = format(props.day.date, "yyyy-MM-dd");
+                  const eventCount = eventCountByDate.get(dateKey) || 0;
+                  return <CustomDayButton {...props} eventCount={eventCount} />;
                 },
               }}
             />
