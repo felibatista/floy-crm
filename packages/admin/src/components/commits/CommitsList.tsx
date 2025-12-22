@@ -69,20 +69,6 @@ export function CommitsList({ taskId }: CommitsListProps) {
     );
   }
 
-  if (commits.length === 0) {
-    return (
-      <div className="text-center py-8">
-        <GitCommit className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-        <p className="text-sm text-muted-foreground">
-          No hay commits asociados a esta tarea
-        </p>
-        <p className="text-xs text-muted-foreground mt-1">
-          Los commits se vinculan automáticamente cuando contienen el código de la tarea en el mensaje
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div className="rounded-md border">
       <Table>
@@ -91,12 +77,19 @@ export function CommitsList({ taskId }: CommitsListProps) {
             <TableHead className="w-[100px]">Hash</TableHead>
             <TableHead>Mensaje</TableHead>
             <TableHead className="w-[150px]">Autor</TableHead>
-            <TableHead className="w-[180px]">Repositorio</TableHead>
             <TableHead className="w-[120px]">Fecha</TableHead>
             <TableHead className="w-[60px]"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
+          {commits.length === 0 && (
+            <TableCell
+              colSpan={5}
+              className="text-center py-8 text-muted-foreground"
+            >
+              No hay commits asociados a esta tarea
+            </TableCell>
+          )}
           {commits.map((commit) => (
             <TableRow key={commit.id}>
               <TableCell className="font-mono text-xs">
@@ -111,10 +104,7 @@ export function CommitsList({ taskId }: CommitsListProps) {
                   {commit.author}
                 </div>
               </TableCell>
-              <TableCell className="text-xs text-muted-foreground">
-                {commit.repository}
-              </TableCell>
-              <TableCell className="text-xs text-muted-foreground">
+              <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                 {format(new Date(commit.committedAt), "dd MMM yyyy HH:mm", {
                   locale: es,
                 })}

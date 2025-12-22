@@ -150,12 +150,12 @@ export function TaskDetailInfo({
                 placeholder="ej: 2h"
               />
             ) : (
-              <span>{formData.timeEstimated || "00:00"}</span>
+              <div className="space-x-2">
+                <span>{formData.timeEstimated || "00:00"}</span>
+                <span>/</span>
+                <span>{totalTimeSpent}</span>
+              </div>
             )}
-          </div>
-          <div className="flex items-center">
-            <span className="w-40 text-muted-foreground">Tiempo dedicado</span>
-            <span className="font-mono font-medium">{totalTimeSpent}</span>
           </div>
         </div>
 

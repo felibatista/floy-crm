@@ -5,7 +5,18 @@ import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Save, Trash2, GitCommit, List } from "lucide-react";
+import {
+  ArrowLeft,
+  Save,
+  Trash2,
+  GitCommit,
+  List,
+  GitGraph,
+  NotebookPen,
+  ListTodo,
+  Ticket,
+  BookType,
+} from "lucide-react";
 import {
   Task,
   User,
@@ -287,7 +298,7 @@ export default function TaskDetailPage() {
   if (loading) {
     return (
       <div className="h-full flex flex-col">
-        <div className="border-b p-4">
+        <div className="border-b py-4 px-6">
           <Skeleton className="h-8 w-64" />
         </div>
         <div className="flex-1 p-6">
@@ -403,39 +414,37 @@ export default function TaskDetailPage() {
             <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
               <TabsTrigger
                 value="descripcion"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
+                className="text-xs rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
               >
+                <BookType className="h-4 w-4 mr-2" /> 
                 Descripción
               </TabsTrigger>
               <TabsTrigger
                 value="trabajos"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
+                className="text-xs rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
               >
+                <NotebookPen className="h-4 w-4 mr-2" />
                 Trabajos
               </TabsTrigger>
               <TabsTrigger
                 value="commits"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
+                className="text-xs rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
               >
-                <GitCommit className="h-4 w-4 mr-1" />
+                <GitGraph className="h-4 w-4 mr-2" />
                 Commits
               </TabsTrigger>
               <TabsTrigger
-                value="historial"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
-              >
-                Historial
-              </TabsTrigger>
-              <TabsTrigger
                 value="relacionadas"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
+                className="text-xs rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
               >
-                Tareas Relacionadas
+                <ListTodo className="h-4 w-4 mr-2" />
+                Tareas relacionadas
               </TabsTrigger>
               <TabsTrigger
                 value="tickets"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
+                className="text-xs rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
               >
+                <Ticket className="h-4 w-4 mr-2" />
                 Tickets
               </TabsTrigger>
             </TabsList>
@@ -466,26 +475,9 @@ export default function TaskDetailPage() {
               {task && <CommitsList taskId={task.id} />}
             </TabsContent>
 
-            <TabsContent value="historial" className="mt-4">
-              <div className="text-muted-foreground text-sm">
-                <p>Historial de cambios de la tarea.</p>
-                <p className="mt-2 italic">Próximamente...</p>
-              </div>
-            </TabsContent>
+            <TabsContent value="relacionadas" className="mt-4"></TabsContent>
 
-            <TabsContent value="relacionadas" className="mt-4">
-              <div className="text-muted-foreground text-sm">
-                <p>Tareas relacionadas con esta.</p>
-                <p className="mt-2 italic">Próximamente...</p>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="tickets" className="mt-4">
-              <div className="text-muted-foreground text-sm">
-                <p>Tickets asociados a esta tarea.</p>
-                <p className="mt-2 italic">Próximamente...</p>
-              </div>
-            </TabsContent>
+            <TabsContent value="tickets" className="mt-4"></TabsContent>
           </Tabs>
         </div>
       </div>
