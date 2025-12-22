@@ -14,6 +14,10 @@ import {
 } from "@/components/leads";
 
 export default function LeadsPage() {
+  useEffect(() => {
+    document.title = "Leads | Acentus";
+  }, []);
+
   const [leads, setLeads] = useState<Lead[]>([]);
   const [pagination, setPagination] = useState<Pagination>({
     page: 1,

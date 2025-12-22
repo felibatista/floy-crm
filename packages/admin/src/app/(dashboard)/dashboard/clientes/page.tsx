@@ -16,6 +16,10 @@ import { useAuth } from "@/context";
 import ClientsErrorPage from "@/components/clients/ClientsPageError";
 
 export default function ClientesPage() {
+  useEffect(() => {
+    document.title = "Clientes | Acentus";
+  }, []);
+
   const [clients, setClients] = useState<Client[]>([]);
   const [pagination, setPagination] = useState<Pagination>({
     page: 1,

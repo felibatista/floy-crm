@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Head from "next/head";
 import { useDebounce } from "@/hooks/use-debounce";
 import {
   TaskCreateDialog,
@@ -17,6 +18,10 @@ import {
 } from "@/components/tareas";
 
 export default function TareasPage() {
+  useEffect(() => {
+    document.title = "Tareas | Acentus";
+  }, []);
+
   const [tasks, setTasks] = useState<Task[]>([]);
   const [pagination, setPagination] = useState<Pagination>({
     page: 1,

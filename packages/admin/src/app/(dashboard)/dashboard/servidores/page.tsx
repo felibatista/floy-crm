@@ -5,6 +5,10 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { ServersTable, ServersFilters, Project } from "@/components/servidores";
 
 export default function ServidoresPage() {
+  useEffect(() => {
+    document.title = "Servidores | Acentus";
+  }, []);
+
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

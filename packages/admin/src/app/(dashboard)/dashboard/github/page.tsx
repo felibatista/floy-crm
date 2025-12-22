@@ -2,7 +2,13 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -52,6 +58,10 @@ interface ProjectWithRepo {
 }
 
 export default function GitHubPage() {
+  useEffect(() => {
+    document.title = "GitHub | Acentus";
+  }, []);
+
   const [stats, setStats] = useState<GitHubStats | null>(null);
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
   const [projects, setProjects] = useState<ProjectWithRepo[]>([]);
@@ -65,9 +75,12 @@ export default function GitHubPage() {
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/github/stats`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/github/sync-logs?limit=10`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
+        fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/admin/github/sync-logs?limit=10`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        ),
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/github/projects`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
@@ -144,18 +157,24 @@ export default function GitHubPage() {
               Configuración requerida
             </CardTitle>
             <CardDescription>
-              Para usar la integración con GitHub, necesitas configurar el token de acceso.
+              Para usar la integración con GitHub, necesitas configurar el token
+              de acceso.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Agrega la variable <code className="bg-muted px-1 py-0.5 rounded">GITHUB_TOKEN</code> en el archivo <code className="bg-muted px-1 py-0.5 rounded">.env</code> del backend con un Personal Access Token de GitHub.
+              Agrega la variable{" "}
+              <code className="bg-muted px-1 py-0.5 rounded">GITHUB_TOKEN</code>{" "}
+              en el archivo{" "}
+              <code className="bg-muted px-1 py-0.5 rounded">.env</code> del
+              backend con un Personal Access Token de GitHub.
             </p>
             <div className="bg-muted p-3 rounded-md">
               <code className="text-sm">GITHUB_TOKEN=ghp_xxxxxxxxxxxx</code>
             </div>
             <p className="text-sm text-muted-foreground">
-              El token necesita permisos de lectura en los repositorios que quieras sincronizar.
+              El token necesita permisos de lectura en los repositorios que
+              quieras sincronizar.
             </p>
           </CardContent>
         </Card>
@@ -171,7 +190,9 @@ export default function GitHubPage() {
           <h1 className="text-2xl font-bold">GitHub</h1>
         </div>
         <Button onClick={handleSync} disabled={syncing}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? "animate-spin" : ""}`} />
+          <RefreshCw
+            className={`h-4 w-4 mr-2 ${syncing ? "animate-spin" : ""}`}
+          />
           {syncing ? "Sincronizando..." : "Sincronizar ahora"}
         </Button>
       </div>
@@ -185,7 +206,9 @@ export default function GitHubPage() {
                 <GitCommit className="h-5 w-5 text-purple-600 dark:text-purple-400" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Commits Vinculados</p>
+                <p className="text-sm text-muted-foreground">
+                  Commits Vinculados
+                </p>
                 <p className="text-2xl font-bold">{stats.totalCommits}</p>
               </div>
             </div>
@@ -199,7 +222,9 @@ export default function GitHubPage() {
                 <Github className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Repos Configurados</p>
+                <p className="text-sm text-muted-foreground">
+                  Repos Configurados
+                </p>
                 <p className="text-2xl font-bold">{stats.reposConfigured}</p>
               </div>
             </div>
@@ -228,7 +253,9 @@ export default function GitHubPage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Última Sync</p>
-                <p className="text-sm font-medium">{formatDate(stats.lastSync)}</p>
+                <p className="text-sm font-medium">
+                  {formatDate(stats.lastSync)}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -344,7 +371,10 @@ export default function GitHubPage() {
                     </TableCell>
                     <TableCell>
                       {log.status === "success" ? (
-                        <Badge variant="outline" className="bg-green-500 text-white border-0">
+                        <Badge
+                          variant="outline"
+                          className="bg-green-500 text-white border-0"
+                        >
                           <CheckCircle className="h-3 w-3 mr-1" />
                           Éxito
                         </Badge>

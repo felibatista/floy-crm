@@ -12,6 +12,10 @@ import {
 import { useAuth } from "@/context";
 
 export default function ProyectosPage() {
+  useEffect(() => {
+    document.title = "Proyectos | Acentus";
+  }, []);
+
   const [projects, setProjects] = useState<Project[]>([]);
   const [pagination, setPagination] = useState<Pagination>({
     page: 1,

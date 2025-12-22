@@ -1,10 +1,15 @@
 "use client";
 
+import { useEffect } from "react";
 import { AgendaCalendar } from "@/components/agenda-calendar";
 import { UpcomingEvents } from "@/components/upcoming-events";
 import { useAuth } from "@/context/auth-context";
 
 export default function DashboardPage() {
+  useEffect(() => {
+    document.title = "Dashboard | Acentus";
+  }, []);
+
   const { user } = useAuth();
 
   return (
