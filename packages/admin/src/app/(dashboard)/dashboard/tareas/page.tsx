@@ -5,6 +5,7 @@ import { useDebounce } from "@/hooks/use-debounce";
 import {
   TaskCreateDialog,
   TasksTable,
+  TasksGroupedTable,
   TasksFilters,
   TasksPagination,
   Task,
@@ -33,6 +34,7 @@ export default function TareasPage() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [categories, setCategories] = useState<string[]>([]);
+  const [groupBy, setGroupBy] = useState<string[]>([]);
 
   // Form state
   const [users, setUsers] = useState<User[]>([]);
@@ -178,11 +180,17 @@ export default function TareasPage() {
             filterCategory={filterCategory}
             onFilterCategoryChange={setFilterCategory}
             categories={categories}
+            groupBy={groupBy}
+            onGroupByChange={setGroupBy}
           />
         </div>
       </div>
 
-      <TasksTable tasks={tasks} loading={loading} />
+      {groupBy.length === 0 ? (
+        <TasksTable tasks={tasks} loading={loading} />
+      ) : (
+        <TasksGroupedTable tasks={tasks} loading={loading} groupBy={groupBy} />
+      )}
 
       <TasksPagination pagination={pagination} onPageChange={fetchTasks} />
     </div>
