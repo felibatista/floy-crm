@@ -4,7 +4,7 @@ import { prisma } from "../../../lib/prisma";
 interface ListTasksParams {
   page?: number;
   limit?: number;
-  status?: TaskStatus;
+  status?: TaskStatus | TaskStatus[];
   assignedToId?: number;
   projectId?: number;
   category?: string;
@@ -44,7 +44,11 @@ export class TaskService {
     const where: Prisma.TaskWhereInput = {};
 
     if (status) {
-      where.status = status;
+      if (Array.isArray(status)) {
+        where.status = { in: status };
+      } else {
+        where.status = status;
+      }
     }
 
     if (assignedToId) {

@@ -9,16 +9,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Search, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Search, X, RotateCcw } from "lucide-react";
 
 interface TasksFiltersProps {
   search: string;
   onSearchChange: (value: string) => void;
-  filterStatus: string;
-  onFilterStatusChange: (value: string) => void;
-  filterCategory: string;
-  onFilterCategoryChange: (value: string) => void;
-  categories: string[];
+  filterStatus: string[];
+  onFilterStatusChange: (value: string[]) => void;
   groupBy: string[];
   onGroupByChange: (value: string[]) => void;
 }
@@ -28,9 +26,6 @@ export function TasksFilters({
   onSearchChange,
   filterStatus,
   onFilterStatusChange,
-  filterCategory,
-  onFilterCategoryChange,
-  categories,
   groupBy,
   onGroupByChange,
 }: TasksFiltersProps) {
@@ -39,6 +34,15 @@ export function TasksFilters({
     { value: "project", label: "Proyecto" },
     { value: "status", label: "Estado" },
     { value: "priority", label: "Prioridad" },
+    { value: "category", label: "Categoría" },
+  ];
+
+  const statusOptions = [
+    { value: "draft", label: "Borrador" },
+    { value: "pending", label: "Pendiente" },
+    { value: "in_progress", label: "En progreso" },
+    { value: "completed", label: "Completada" },
+    { value: "cancelled", label: "Cancelada" },
   ];
 
   const handleGroupToggle = (value: string) => {
@@ -51,6 +55,45 @@ export function TasksFilters({
 
   const handleRemoveGroup = (value: string) => {
     onGroupByChange(groupBy.filter((g) => g !== value));
+  };
+
+  const handleStatusToggle = (value: string) => {
+    // Si todos los estados están seleccionados, al hacer clic en uno, solo ese se queda
+    const allStatuses = statusOptions.map((opt) => opt.value);
+    const allSelected = allStatuses.every((status) =>
+      filterStatus.includes(status)
+    );
+
+    if (allSelected) {
+      onFilterStatusChange([value]);
+    } else if (filterStatus.includes(value)) {
+      onFilterStatusChange(filterStatus.filter((s) => s !== value));
+    } else {
+      onFilterStatusChange([...filterStatus, value]);
+    }
+  };
+
+  const getStatusLabel = () => {
+    if (filterStatus.length === 0) {
+      return "Estado";
+    }
+    if (filterStatus.length === 1) {
+      return (
+        statusOptions.find((s) => s.value === filterStatus[0])?.label ||
+        "Estado"
+      );
+    }
+    return `${filterStatus.length} estados`;
+  };
+
+  const handleClearStatusFilters = () => {
+    onFilterStatusChange([
+      "draft",
+      "pending",
+      "in_progress",
+      "completed",
+      "cancelled",
+    ]);
   };
 
   return (
@@ -80,10 +123,12 @@ export function TasksFilters({
               return (
                 <Badge
                   key={group}
-                  variant="secondary"
+                  variant="outline"
                   className="text-xs flex items-center gap-1"
                 >
-                  {index > 0 && <span className="text-muted-foreground">→</span>}
+                  {index > 0 && (
+                    <span className="text-muted-foreground">→</span>
+                  )}
                   {option?.label}
                   <button
                     onClick={() => handleRemoveGroup(group)}
@@ -98,29 +143,34 @@ export function TasksFilters({
         )}
       </div>
 
-      <Select value={filterStatus} onValueChange={onFilterStatusChange}>
+      <Select value="" onValueChange={handleStatusToggle}>
         <SelectTrigger className="w-[140px] h-8">
-          <SelectValue placeholder="Estado" />
+          <SelectValue placeholder={getStatusLabel()} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">Todos los estados</SelectItem>
-          <SelectItem value="draft">Borrador</SelectItem>
-          <SelectItem value="pending">Pendiente</SelectItem>
-          <SelectItem value="in_progress">En progreso</SelectItem>
-          <SelectItem value="completed">Completada</SelectItem>
-          <SelectItem value="cancelled">Cancelada</SelectItem>
-        </SelectContent>
-      </Select>
-
-      <Select value={filterCategory} onValueChange={onFilterCategoryChange}>
-        <SelectTrigger className="w-[140px] h-8">
-          <SelectValue placeholder="Categoría" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Todas las categorías</SelectItem>
-          {categories.map((cat) => (
-            <SelectItem key={cat} value={cat}>
-              {cat}
+          <div className="px-2 py-1.5 border-b text-center mb-1.5">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClearStatusFilters}
+              className="w-full text-xs h-7"
+            >
+              Mostrar todos
+            </Button>
+          </div>
+          {statusOptions.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              <div className="flex items-center gap-2">
+                <span
+                  className={
+                    filterStatus.includes(option.value)
+                      ? "text-muted-foreground"
+                      : ""
+                  }
+                >
+                  {option.label}
+                </span>
+              </div>
             </SelectItem>
           ))}
         </SelectContent>

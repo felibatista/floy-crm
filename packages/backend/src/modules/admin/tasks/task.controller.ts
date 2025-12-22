@@ -14,10 +14,20 @@ export class TaskController {
         search,
       } = req.query;
 
+      // Handle status as either a single value or an array
+      let statusParam: any = undefined;
+      if (status) {
+        if (Array.isArray(status)) {
+          statusParam = status;
+        } else {
+          statusParam = status;
+        }
+      }
+
       const result = await taskService.list({
         page: parseInt(page as string),
         limit: parseInt(limit as string),
-        status: status as any,
+        status: statusParam,
         assignedToId: assignedToId
           ? parseInt(assignedToId as string)
           : undefined,

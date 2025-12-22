@@ -80,6 +80,8 @@ function getGroupValue(task: Task, groupType: string): string {
       return task.status;
     case "priority":
       return task.priority;
+    case "category":
+      return task.category || "Sin categoría";
     default:
       return "Otros";
   }

@@ -31,9 +31,11 @@ export default function TareasPage() {
   // Filter state
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
-  const [filterStatus, setFilterStatus] = useState<string>("all");
-  const [filterCategory, setFilterCategory] = useState<string>("all");
-  const [categories, setCategories] = useState<string[]>([]);
+  const [filterStatus, setFilterStatus] = useState<string[]>([
+    "draft",
+    "pending",
+    "in_progress",
+  ]);
   const [groupBy, setGroupBy] = useState<string[]>([]);
 
   // Form state
@@ -50,8 +52,9 @@ export default function TareasPage() {
         const token = localStorage.getItem("admin_token");
         const params = new URLSearchParams({ page: String(page), limit: "50" });
         if (debouncedSearch) params.append("search", debouncedSearch);
-        if (filterStatus !== "all") params.append("status", filterStatus);
-        if (filterCategory !== "all") params.append("category", filterCategory);
+        if (filterStatus.length > 0) {
+          filterStatus.forEach((status) => params.append("status", status));
+        }
 
         const res = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/api/admin/tasks?${params}`,
@@ -71,24 +74,8 @@ export default function TareasPage() {
         setLoading(false);
       }
     },
-    [debouncedSearch, filterStatus, filterCategory]
+    [debouncedSearch, filterStatus]
   );
-
-  const fetchCategories = async () => {
-    try {
-      const token = localStorage.getItem("admin_token");
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/admin/tasks/categories`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      if (res.ok) {
-        const data = await res.json();
-        setCategories(data);
-      }
-    } catch (err) {
-      console.error("Error fetching categories:", err);
-    }
-  };
 
   const fetchFormData = async () => {
     const token = localStorage.getItem("admin_token");
@@ -112,7 +99,6 @@ export default function TareasPage() {
   useEffect(() => {
     fetchTasks();
     fetchFormData();
-    fetchCategories();
   }, [fetchTasks]);
 
   const handleCreate = async () => {
@@ -177,9 +163,6 @@ export default function TareasPage() {
             onSearchChange={setSearch}
             filterStatus={filterStatus}
             onFilterStatusChange={setFilterStatus}
-            filterCategory={filterCategory}
-            onFilterCategoryChange={setFilterCategory}
-            categories={categories}
             groupBy={groupBy}
             onGroupByChange={setGroupBy}
           />
