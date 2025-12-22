@@ -107,7 +107,27 @@ export const priorityConfig = {
   low: { label: "Baja", color: "text-gray-500" },
   medium: { label: "Media", color: "text-yellow-500" },
   high: { label: "Alta", color: "text-orange-500" },
+  urgent: { label: "Urgente", color: "text-red-500" },
   critical: { label: "Crítica", color: "text-red-500" },
+};
+
+export const priorityMap: Record<
+  string,
+  {
+    variant:
+      | "default"
+      | "destructive"
+      | "outline"
+      | "yellow"
+      | "orange"
+      | "info";
+    label: string;
+  }
+> = {
+  low: { variant: "default", label: "Baja" },
+  medium: { variant: "yellow", label: "Media" },
+  high: { variant: "orange", label: "Alta" },
+  urgent: { variant: "destructive", label: "Urgente" },
 };
 
 export const categoryOptions = [

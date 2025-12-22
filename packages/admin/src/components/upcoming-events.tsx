@@ -77,7 +77,7 @@ export function UpcomingEvents() {
             }
             return 0;
           })
-          .slice(0, ); // Tomar solo los primeros 5
+          .slice(0, 4);
 
         setEvents(upcomingEvents);
       }
