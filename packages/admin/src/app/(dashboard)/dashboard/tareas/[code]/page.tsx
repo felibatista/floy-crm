@@ -52,6 +52,10 @@ export default function TaskDetailPage() {
   const router = useRouter();
   const taskCode = params.code as string;
 
+  useEffect(() => {
+    document.title = `${taskCode} | Acentus`;
+  }, [taskCode]);
+
   const [task, setTask] = useState<Task | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -416,7 +420,7 @@ export default function TaskDetailPage() {
                 value="descripcion"
                 className="text-xs rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
               >
-                <BookType className="h-4 w-4 mr-2" /> 
+                <BookType className="h-4 w-4 mr-2" />
                 Descripción
               </TabsTrigger>
               <TabsTrigger
