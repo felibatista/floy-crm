@@ -52,7 +52,7 @@ export async function handleAuthCheck(
     }
 
     // Valid token - redirect away from login page
-    if (isLoginPage) {
+    if (isLoginPage || pathname === "/") {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
   } catch (error) {
