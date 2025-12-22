@@ -133,7 +133,7 @@ export function UpcomingEvents() {
             <Card key={event.id} className="hover:shadow-lg transition-shadow">
               <CardHeader className="pb-3">
                 <div className="flex items-start gap-4">
-                  <div className="flex flex-col items-center justify-center bg-primary/10 rounded-lg p-3 min-w-[60px]">
+                  <div className="flex flex-col items-center justify-center bg-green-300/30 rounded-lg p-3 min-w-[60px]">
                     <span className="text-2xl font-bold text-primary">
                       {dayNumber}
                     </span>

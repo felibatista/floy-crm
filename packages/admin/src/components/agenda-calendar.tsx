@@ -72,7 +72,7 @@ function CustomDayButton({
     <CalendarDayButton day={day} {...props}>
       <span>{day.date.getDate()}</span>
       {eventCount > 0 && (
-        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[0.6rem] text-primary-foreground">
+        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-green-300 text-[0.5rem] text-black font-semibold">
           {eventCount}
         </span>
       )}
@@ -355,7 +355,7 @@ export function AgendaCalendar() {
                   eventsForSelectedDate.map((event) => (
                     <div
                       key={event.id}
-                      className="bg-muted after:bg-primary/70 relative rounded-md p-2 pl-6 text-xs after:absolute after:inset-y-2 after:left-2 after:w-1 after:rounded-full group"
+                      className="bg-muted after:bg-green-300 relative rounded-md p-2 pl-6 text-xs after:absolute after:inset-y-2 after:left-2 after:w-1 after:rounded-full group"
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">

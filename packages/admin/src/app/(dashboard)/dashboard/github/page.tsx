@@ -184,11 +184,7 @@ export default function GitHubPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Github className="h-8 w-8" />
-          <h1 className="text-2xl font-bold">GitHub</h1>
-        </div>
+      <div className="flex items-center justify-end">
         <Button onClick={handleSync} disabled={syncing}>
           <RefreshCw
             className={`h-4 w-4 mr-2 ${syncing ? "animate-spin" : ""}`}
@@ -197,76 +193,60 @@ export default function GitHubPage() {
         </Button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900">
-                <GitCommit className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">
-                  Commits Vinculados
-                </p>
-                <p className="text-2xl font-bold">{stats.totalCommits}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900">
-                <Github className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">
-                  Repos Configurados
-                </p>
-                <p className="text-2xl font-bold">{stats.reposConfigured}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-green-100 dark:bg-green-900">
-                <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Estado</p>
-                <p className="text-lg font-semibold text-green-600">Activo</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-orange-100 dark:bg-orange-900">
-                <Clock className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Última Sync</p>
-                <p className="text-sm font-medium">
-                  {formatDate(stats.lastSync)}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Proyectos Configurados */}
         <Card>
           <CardHeader>
-            <CardTitle>Proyectos con Repositorio</CardTitle>
+            <CardTitle>Información</CardTitle>
+            <CardDescription>
+              Estadísticas generales de la integración con GitHub
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-4">
+              <Card>
+                <CardContent className="p-3 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">Commits vinculados</p>
+                    <p className="font-bold">{stats.totalCommits}</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-3 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">Repositorios</p>
+                    <p className="font-bold">{stats.reposConfigured}</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-3 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">Estado</p>
+                    <p className="font-semibold text-green-600">Activo</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-3 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">
+                      Última sincronización
+                    </p>
+                    <p className="font-medium">{formatDate(stats.lastSync)}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Proyectos</CardTitle>
             <CardDescription>
               Proyectos que tienen un repositorio de GitHub configurado
             </CardDescription>
@@ -310,41 +290,11 @@ export default function GitHubPage() {
             )}
           </CardContent>
         </Card>
-
-        {/* Commits por Repo */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Commits por Repositorio</CardTitle>
-            <CardDescription>
-              Cantidad de commits vinculados a tareas por repositorio
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {stats.commitsByRepo.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">
-                No hay commits vinculados todavía.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {stats.commitsByRepo.map((repo) => (
-                  <div
-                    key={repo.repository}
-                    className="flex items-center justify-between p-3 border rounded-lg"
-                  >
-                    <code className="text-sm">{repo.repository}</code>
-                    <Badge>{repo.count} commits</Badge>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
       </div>
 
-      {/* Historial de Sincronización */}
       <Card>
         <CardHeader>
-          <CardTitle>Historial de Sincronización</CardTitle>
+          <CardTitle>Historial</CardTitle>
           <CardDescription>Últimas 10 sincronizaciones</CardDescription>
         </CardHeader>
         <CardContent>
@@ -367,14 +317,11 @@ export default function GitHubPage() {
                 {syncLogs.map((log) => (
                   <TableRow key={log.id}>
                     <TableCell>
-                      <code className="text-sm">{log.repository}</code>
+                      <code className="text-xs">{log.repository}</code>
                     </TableCell>
                     <TableCell>
                       {log.status === "success" ? (
-                        <Badge
-                          variant="outline"
-                          className="bg-green-500 text-white border-0"
-                        >
+                        <Badge variant="success">
                           <CheckCircle className="h-3 w-3 mr-1" />
                           Éxito
                         </Badge>
@@ -392,7 +339,7 @@ export default function GitHubPage() {
                     </TableCell>
                     <TableCell>{log.commitsFound}</TableCell>
                     <TableCell>{log.commitsLinked}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
+                    <TableCell className="text-xs text-muted-foreground">
                       {formatDate(log.startedAt)}
                     </TableCell>
                   </TableRow>
