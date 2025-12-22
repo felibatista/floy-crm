@@ -237,14 +237,26 @@ export function TaskCreateDialog({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="category">Categoría</Label>
-              <Input
-                id="category"
+              <Select
                 value={formData.category}
-                onChange={(e) =>
-                  onFormChange({ ...formData, category: e.target.value })
+                onValueChange={(v) =>
+                  onFormChange({ ...formData, category: v })
                 }
-                placeholder="ej: Backend, Frontend"
-              />
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar categoría" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Requerimiento interno">Requerimiento interno</SelectItem>
+                  <SelectItem value="Reunion">Reunión</SelectItem>
+                  <SelectItem value="Nuevo requerimiento">Nuevo requerimiento</SelectItem>
+                  <SelectItem value="Error">Error</SelectItem>
+                  <SelectItem value="Gestion">Gestión</SelectItem>
+                  <SelectItem value="Correccion de datos">Corrección de datos</SelectItem>
+                  <SelectItem value="Analisis">Análisis</SelectItem>
+                  <SelectItem value="Soporte">Soporte</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">

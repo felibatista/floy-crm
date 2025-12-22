@@ -105,12 +105,24 @@ export function TaskDetailInfo({
           <div className="flex items-center">
             <span className="w-40 text-muted-foreground">Categoría</span>
             {isDraft ? (
-              <Input
+              <Select
                 value={formData.category}
-                onChange={(e) => onFieldChange("category", e.target.value)}
-                className="h-7 w-40"
-                placeholder="Categoría"
-              />
+                onValueChange={(v) => onFieldChange("category", v)}
+              >
+                <SelectTrigger className="w-48 h-7">
+                  <SelectValue placeholder="Seleccionar categoría" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Requerimiento interno">Requerimiento interno</SelectItem>
+                  <SelectItem value="Reunion">Reunión</SelectItem>
+                  <SelectItem value="Nuevo requerimiento">Nuevo requerimiento</SelectItem>
+                  <SelectItem value="Error">Error</SelectItem>
+                  <SelectItem value="Gestion">Gestión</SelectItem>
+                  <SelectItem value="Correccion de datos">Corrección de datos</SelectItem>
+                  <SelectItem value="Analisis">Análisis</SelectItem>
+                  <SelectItem value="Soporte">Soporte</SelectItem>
+                </SelectContent>
+              </Select>
             ) : (
               <span>{formData.category || "-"}</span>
             )}
