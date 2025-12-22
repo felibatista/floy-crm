@@ -425,17 +425,6 @@ export function AgendaCalendar() {
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="event-description">Descripción (opcional)</Label>
-              <Textarea
-                id="event-description"
-                value={eventDescription}
-                onChange={(e) => setEventDescription(e.target.value)}
-                placeholder="Detalles del evento..."
-                rows={3}
-              />
-            </div>
-
-            <div className="grid gap-2">
               <Label>Horario</Label>
               <div className="flex items-center gap-4">
                 <label className="flex items-center gap-2 cursor-pointer">

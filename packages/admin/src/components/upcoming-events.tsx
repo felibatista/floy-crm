@@ -123,45 +123,35 @@ export function UpcomingEvents() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {events.map((event) => {
           const eventDate = parseISO(event.date.split("T")[0]);
-          const formattedDate = format(eventDate, "EEEE, d 'de' MMMM", {
-            locale: es,
-          });
           const dayNumber = format(eventDate, "d");
           const monthName = format(eventDate, "MMM", { locale: es });
 
           return (
-            <Card key={event.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-3">
-                <div className="flex items-start gap-4">
-                  <div className="flex flex-col items-center justify-center bg-green-300/30 rounded-lg p-3 min-w-[60px]">
-                    <span className="text-2xl font-bold text-primary">
+            <Card key={event.id}>
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex flex-col items-center justify-center bg-green-500/20 rounded-lg p-2.5 min-w-[56px]">
+                    <span className="text-2xl font-bold text-primary leading-none">
                       {dayNumber}
                     </span>
-                    <span className="text-xs text-primary uppercase">
+                    <span className="text-[10px] text-primary uppercase font-medium mt-0.5">
                       {monthName}
                     </span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <CardTitle className="text-base line-clamp-2">
+                  <div className="flex-1 min-w-0 space-y-1.5">
+                    <h3 className="font-semibold text-sm leading-tight line-clamp-2">
                       {event.title}
-                    </CardTitle>
+                    </h3>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      {event.isAllDay ? (
+                        <CalendarDays className="h-3.5 w-3.5 shrink-0" />
+                      ) : (
+                        <Clock className="h-3.5 w-3.5 shrink-0" />
+                      )}
+                      <span className="truncate">{formatTimeRange(event)}</span>
+                    </div>
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent className="pt-0 space-y-2">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  {event.isAllDay ? (
-                    <CalendarDays className="h-4 w-4 shrink-0" />
-                  ) : (
-                    <Clock className="h-4 w-4 shrink-0" />
-                  )}
-                  <span className="truncate">{formatTimeRange(event)}</span>
-                </div>
-                {event.description && (
-                  <p className="text-xs text-muted-foreground line-clamp-2">
-                    {event.description}
-                  </p>
-                )}
               </CardContent>
             </Card>
           );
