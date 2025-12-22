@@ -1,20 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, ExternalLink, Database, Globe, Server } from "lucide-react";
-
-const COOLIFY_URL = "https://coolify.acentus.com.ar";
+import { ArrowLeft } from "lucide-react";
+import { ServerDetailHeader, ServerDetailInfo } from "@/components/servidores";
 
 interface Application {
   id: number;
@@ -50,10 +41,15 @@ export default function ProjectDetailPage() {
 
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchProject = async () => {
-    setLoading(true);
+  const fetchProject = useCallback(async (isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
     setError(null);
     try {
       const token = localStorage.getItem("admin_token");
@@ -72,89 +68,50 @@ export default function ProjectDetailPage() {
 
       const data = await res.json();
       setProject(data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Error desconocido";
+      setError(message);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  };
+  }, [projectUuid]);
 
   useEffect(() => {
     fetchProject();
-  }, [projectUuid]);
+  }, [fetchProject]);
 
-  const getStatusBadge = (status: string) => {
-    const normalizedStatus = status?.toLowerCase()?.split(":")[0] || "";
+  useEffect(() => {
+    if (project?.name) {
+      document.title = `${project.name} | Acentus`;
+    }
+  }, [project?.name]);
 
-    const statusMap: Record<
-      string,
-      {
-        variant:
-          | "default"
-          | "destructive"
-          | "outline"
-          | "yellow"
-          | "blue"
-          | "success"
-          | "orange"
-          | "purple"
-          | "info";
-        label: string;
-      }
-    > = {
-      running: { variant: "success", label: "Activo" },
-      exited: { variant: "destructive", label: "Detenido" },
-      stopped: { variant: "destructive", label: "Detenido" },
-      starting: { variant: "blue", label: "Iniciando" },
-      restarting: { variant: "orange", label: "Reiniciando" },
-    };
-
-    const statusInfo = statusMap[normalizedStatus] || {
-      variant: "outline",
-      label: status || "Desconocido",
-    };
-
-    return <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>;
-  };
-
-  const getCoolifyUrl = (
-    envUuid: string,
-    resourceUuid: string,
-    type: string
-  ) => {
-    const resourceType =
-      type === "application"
-        ? "application"
-        : type === "service" || type === "minio"
-        ? "service"
-        : "database";
-    return `${COOLIFY_URL}/project/${projectUuid}/environment/${envUuid}/${resourceType}/${resourceUuid}`;
+  const handleRefresh = () => {
+    fetchProject(true);
   };
 
   if (loading) {
     return (
-      <div className="space-y-6 p-6">
-        <div className="flex items-center gap-4">
-          <Skeleton className="h-10 w-10" />
+      <div className="h-full flex flex-col">
+        <div className="border-b py-4 px-6">
           <Skeleton className="h-8 w-64" />
         </div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-32" />
-          ))}
+        <div className="flex-1 p-6">
+          <Skeleton className="h-96" />
         </div>
       </div>
     );
   }
 
-  if (error) {
+  if (error && !project) {
     return (
-      <div className="space-y-6 p-6">
+      <div className="h-full flex flex-col p-6">
         <Button variant="ghost" onClick={() => router.back()}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Volver
         </Button>
-        <div className="bg-destructive/15 text-destructive px-4 py-3 rounded-md">
+        <div className="bg-destructive/15 text-destructive px-4 py-3 rounded-md mt-4">
           {error}
         </div>
       </div>
@@ -162,177 +119,24 @@ export default function ProjectDetailPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.back()}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-semibold">{project?.name}</h1>
-            <p className="text-muted-foreground">
-              {project?.description || "Sin descripción"}
-            </p>
-          </div>
+    <div className="h-full flex flex-col">
+      <ServerDetailHeader
+        projectUuid={projectUuid}
+        onRefresh={handleRefresh}
+        refreshing={refreshing}
+      />
+
+      <div className="flex-1 overflow-auto">
+        <div className="p-6">
+          {error && (
+            <div className="bg-destructive/15 text-destructive px-4 py-3 rounded-md mb-4">
+              {error}
+            </div>
+          )}
+
+          <ServerDetailInfo project={project} projectUuid={projectUuid} />
         </div>
-        <Button
-          variant="outline"
-          onClick={() =>
-            window.open(`${COOLIFY_URL}/project/${projectUuid}`, "_blank")
-          }
-        >
-          <ExternalLink className="h-4 w-4 mr-2" />
-          Abrir en Coolify
-        </Button>
       </div>
-
-      {project?.environments.map((env) => (
-        <div key={env.id} className="space-y-4">
-          <h2 className="text-lg font-medium flex items-center gap-2">
-            <Server className="h-5 w-5" />
-            Entorno: {env.name}
-          </h2>
-
-          {/* Applications */}
-          {env.applications && env.applications.length > 0 && (
-            <div className="space-y-3">
-              <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Globe className="h-4 w-4" />
-                Aplicaciones
-              </h3>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {env.applications.map((app) => (
-                  <Card key={app.uuid}>
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-base">{app.name}</CardTitle>
-                        {getStatusBadge(app.status)}
-                      </div>
-                      <CardDescription className="text-xs truncate">
-                        {app.fqdn || "Sin dominio"}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="w-full"
-                        onClick={() =>
-                          window.open(
-                            getCoolifyUrl(env.uuid, app.uuid, "application"),
-                            "_blank"
-                          )
-                        }
-                      >
-                        <ExternalLink className="h-4 w-4 mr-2" />
-                        Abrir en Coolify
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Databases */}
-          {env.databases && env.databases.length > 0 && (
-            <div className="space-y-3">
-              <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Database className="h-4 w-4" />
-                Bases de datos
-              </h3>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {env.databases.map((db: any) => (
-                  <Card key={db.uuid}>
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-base">{db.name}</CardTitle>
-                        {getStatusBadge(db.status)}
-                      </div>
-                      <CardDescription className="text-xs">
-                        {db.type || "Database"}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="w-full"
-                        onClick={() =>
-                          window.open(
-                            getCoolifyUrl(env.uuid, db.uuid, db.type),
-                            "_blank"
-                          )
-                        }
-                      >
-                        <ExternalLink className="h-4 w-4 mr-2" />
-                        Abrir en Coolify
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Services */}
-          {env.services && env.services.length > 0 && (
-            <div className="space-y-3">
-              <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Server className="h-4 w-4" />
-                Servicios
-              </h3>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {env.services.map((service: any) => (
-                  <Card key={service.uuid}>
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-base">
-                          {service.name}
-                        </CardTitle>
-                        {getStatusBadge(service.status)}
-                      </div>
-                      <CardDescription className="text-xs">
-                        {service.type || "Service"}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="w-full"
-                        onClick={() =>
-                          window.open(
-                            getCoolifyUrl(env.uuid, service.uuid, "service"),
-                            "_blank"
-                          )
-                        }
-                      >
-                        <ExternalLink className="h-4 w-4 mr-2" />
-                        Abrir en Coolify
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {(!env.applications || env.applications.length === 0) &&
-            (!env.databases || env.databases.length === 0) &&
-            (!env.services || env.services.length === 0) && (
-              <p className="text-muted-foreground text-sm">
-                Este entorno no tiene recursos configurados.
-              </p>
-            )}
-        </div>
-      ))}
-
-      {(!project?.environments || project.environments.length === 0) && (
-        <p className="text-muted-foreground">
-          Este proyecto no tiene entornos configurados.
-        </p>
-      )}
     </div>
   );
 }
