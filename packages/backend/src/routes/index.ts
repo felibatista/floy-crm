@@ -24,6 +24,7 @@ import { coolifyRoutes as coolifyRouter } from "../modules/admin/coolify";
 import { calendarRoutes as calendarRouter } from "../modules/admin";
 import { workLogRoutes as workLogRouter } from "../modules/admin";
 import { githubRoutes as githubRouter } from "../modules/admin";
+import { whatsappRoutes as whatsappRouter, autoResponseRoutes as autoResponseRouter } from "../modules/admin/whatsapp";
 
 // Admin Routes (Only accessible if NOT a portal)
 router.use("/admin", (req, res, next) => {
@@ -44,6 +45,8 @@ router.use("/admin/leads", leadRouter);
 router.use("/admin/calendar", calendarRouter);
 router.use("/admin/worklogs", workLogRouter);
 router.use("/admin/github", githubRouter);
+router.use("/admin/whatsapp", whatsappRouter);
+router.use("/admin/whatsapp/auto-response", autoResponseRouter);
 
 // Portal Routes (Only accessible if IS a portal)
 router.use("/portal", (req, res, next) => {

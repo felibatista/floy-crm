@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
   engineType = "client"
 }
 
@@ -7,55 +7,309 @@ datasource db {
   provider = "postgresql"
 }
 
-// --- ADMIN / STAFF USERS ---
-
 model User {
-  id            Int      @id @default(autoincrement())
-  name          String
-  email         String   @unique
-  passwordHash  String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  groups          Group[]
-  assignedTasks   Task[]
-  calendarEvents  CalendarEvent[]
-  workLogs        WorkLog[]
+  name           String
+  email          String          @unique
+  passwordHash   String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  id             Int             @id @default(autoincrement())
+  ArcaConfig     ArcaConfig?
+  ArcaInvoice    ArcaInvoice[]
+  calendarEvents CalendarEvent[]
+  assignedTasks  Task[]
+  workLogs       WorkLog[]
+  groups         Group[]         @relation("GroupToUser")
 }
 
 model Group {
-  id          Int      @id @default(autoincrement())
   name        String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  users       User[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  id          Int               @id @default(autoincrement())
   permissions GroupPermission[]
+  users       User[]            @relation("GroupToUser")
 }
 
 model Permission {
-  id          Int      @id @default(autoincrement())
-  name        String
-  code        String   @unique
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
+  name             String
+  code             String            @unique
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  id               Int               @id @default(autoincrement())
   groupPermissions GroupPermission[]
 }
 
 model GroupPermission {
-  id           Int      @id @default(autoincrement())
-  createdAt    DateTime @default(now())
+  createdAt    DateTime   @default(now())
+  id           Int        @id @default(autoincrement())
   groupId      Int
   permissionId Int
-
   group        Group      @relation(fields: [groupId], references: [id], onDelete: Cascade)
   permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
   @@unique([groupId, permissionId])
 }
 
-// --- CRM CORE ---
+model Lead {
+  name      String
+  email     String?
+  phone     String?
+  company   String?
+  status    LeadStatus @default(new)
+  notes     String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  id        Int        @id @default(autoincrement())
+}
+
+model Client {
+  name            String
+  email           String?   @unique
+  phone           String?
+  company         String?
+  address         String?
+  slug            String    @unique
+  isPortalEnabled Boolean   @default(false)
+  passwordHash    String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  id              Int       @id @default(autoincrement())
+  projects        Project[]
+  tickets         Ticket[]
+
+  @@map("cliente")
+}
+
+model Project {
+  name           String
+  description    String?
+  status         ProjectStatus @default(active)
+  startDate      DateTime?
+  endDate        DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  id             Int           @id @default(autoincrement())
+  clientId       Int
+  githubRepo     String?
+  currency       String        @default("ARS")
+  paidAmount     Decimal       @default(0) @db.Decimal(12, 2)
+  paymentDueDate DateTime?
+  totalAmount    Decimal?      @db.Decimal(12, 2)
+  files          File[]
+  payments       Payment[]
+  client         Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  servers        Server[]
+  tasks          Task[]
+}
+
+model Ticket {
+  title       String
+  description String?
+  priority    TicketPriority @default(medium)
+  status      TicketStatus   @default(open)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  id          Int            @id @default(autoincrement())
+  clientId    Int
+  tasks       Task[]
+  client      Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model Task {
+  title              String
+  description        String?
+  status             TaskStatus   @default(pending)
+  priority           TaskPriority @default(medium)
+  startDate          DateTime?
+  endDate            DateTime?
+  timeEstimated      String?
+  timeSpent          String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  includeInChangeLog Boolean      @default(false)
+  id                 Int          @id @default(autoincrement())
+  projectId          Int
+  ticketId           Int?
+  assignedToId       Int?
+  category           String?
+  code               String       @unique
+  commits            Commit[]
+  assignedTo         User?        @relation(fields: [assignedToId], references: [id])
+  project            Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  ticket             Ticket?      @relation(fields: [ticketId], references: [id])
+  workLogs           WorkLog[]
+}
+
+model Commit {
+  message     String
+  author      String
+  hash        String   @unique
+  repository  String
+  createdAt   DateTime @default(now())
+  id          Int      @id @default(autoincrement())
+  taskId      Int
+  url         String?
+  committedAt DateTime
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  amount        Decimal       @db.Decimal(10, 2)
+  currency      String        @default("ARS")
+  concept       String?
+  paymentMethod String?
+  status        PaymentStatus @default(pending)
+  fechaPago     DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  id            Int           @id @default(autoincrement())
+  projectId     Int
+  invoices      Invoice[]
+  project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Invoice {
+  invoiceNumber String        @unique
+  amount        Decimal       @db.Decimal(10, 2)
+  currency      String        @default("ARS")
+  emitted       DateTime      @default(now())
+  expiresAt     DateTime?
+  status        InvoiceStatus @default(unpaid)
+  link          String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  id            Int           @id @default(autoincrement())
+  paymentId     Int
+  payment       Payment       @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+}
+
+model File {
+  name        String
+  url         String
+  type        String?
+  size        Int?
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  id          Int      @id @default(autoincrement())
+  projectId   Int
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Server {
+  name      String
+  type      String?
+  ip        String?
+  domain    String?
+  provider  String?
+  status    ServerStatus @default(active)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  id        Int          @id @default(autoincrement())
+  projectId Int
+  project   Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Setting {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique
+  value       String
+  description String?
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model GitHubSyncLog {
+  id            Int       @id @default(autoincrement())
+  repository    String
+  status        String
+  commitsFound  Int       @default(0)
+  commitsLinked Int       @default(0)
+  errorMessage  String?
+  startedAt     DateTime  @default(now())
+  finishedAt    DateTime?
+}
+
+model CalendarEvent {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  title       String
+  description String?
+  date        DateTime @db.Date
+  isAllDay    Boolean  @default(false)
+  startTime   String?
+  endTime     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model WorkLog {
+  id         Int         @id @default(autoincrement())
+  taskId     Int
+  userId     Int
+  summary    String
+  hours      Int
+  minutes    Int         @default(0)
+  type       WorkLogType @default(desarrollo)
+  dateWorked DateTime    @default(now())
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  task       Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user       User        @relation(fields: [userId], references: [id])
+}
+
+model ArcaConfig {
+  id              Int       @id @default(autoincrement())
+  userId          Int       @unique
+  cuit            String
+  razonSocial     String
+  domicilioFiscal String?
+  puntoVenta      Int       @default(1)
+  condicionIva    String    @default("monotributo")
+  iibb            String?
+  inicioActividad DateTime?
+  certificado     String?
+  clavePrivada    String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime
+  User            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ArcaInvoice {
+  id                Int               @id @default(autoincrement())
+  userId            Int
+  tipoComprobante   ArcaInvoiceType   @default(factura_c)
+  puntoVenta        Int
+  numero            Int?
+  receptorNombre    String
+  receptorCuit      String?
+  receptorDomicilio String?
+  importeNeto       Decimal           @db.Decimal(12, 2)
+  importeTotal      Decimal           @db.Decimal(12, 2)
+  moneda            String            @default("PES")
+  concepto          String
+  conceptoTipo      Int               @default(2)
+  periodoDesde      DateTime?
+  periodoHasta      DateTime?
+  vencimientoPago   DateTime?
+  cae               String?
+  caeVencimiento    DateTime?
+  status            ArcaInvoiceStatus @default(draft)
+  pdfUrl            String?
+  pdfFilename       String?
+  afipResponse      String?
+  errorMessage      String?
+  fechaEmision      DateTime          @default(now())
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime
+  User              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([cae])
+  @@index([userId, fechaEmision])
+}
 
 enum LeadStatus {
   new
@@ -65,72 +319,11 @@ enum LeadStatus {
   lost
 }
 
-model Lead {
-  id              Int      @id @default(autoincrement())
-  name            String
-  email           String?
-  phone           String?
-  company         String?
-  status          LeadStatus   @default(new)
-  notes           String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-}
-
-model Client {
-  id              Int      @id @default(autoincrement())
-  name            String
-  email           String?  @unique
-  phone           String?
-  company         String?
-  address         String?
-  
-  // Portal Configuration
-  slug            String   @unique // Subdomain: defender, acme
-  isPortalEnabled Boolean  @default(false)
-  passwordHash    String?  // Master password for the portal
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  projects        Project[]
-  tickets         Ticket[]
-
-  @@map("cliente")
-}
-
 enum ProjectStatus {
   active
   paused
   completed
   cancelled
-}
-
-model Project {
-  id          Int      @id @default(autoincrement())
-  name        String
-  description String?
-  clientId    Int
-  status      ProjectStatus   @default(active)
-  startDate   DateTime?
-  endDate     DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // GitHub Integration
-  githubRepo  String?   // formato: owner/repo (ej: "anthropics/claude-code")
-
-  // Payment tracking
-  totalAmount     Decimal?  @db.Decimal(12, 2)  // Monto total del proyecto
-  paidAmount      Decimal   @default(0) @db.Decimal(12, 2)  // Monto pagado
-  currency        String    @default("ARS")
-  paymentDueDate  DateTime? // Fecha límite de pago
-
-  client      Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  tasks       Task[]
-  payments    Payment[]
-  files       File[]
-  servers     Server[]
 }
 
 enum TicketPriority {
@@ -147,26 +340,12 @@ enum TicketStatus {
   closed
 }
 
-model Ticket {
-  id          Int      @id @default(autoincrement())
-  title       String
-  description String?
-  clientId    Int
-  priority    TicketPriority    @default(medium)
-  status      TicketStatus      @default(open)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  client      Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  tasks       Task[]
-}
-
 enum TaskStatus {
-  draft
   cancelled
   completed
   in_progress
   pending
+  draft
 }
 
 enum TaskPriority {
@@ -176,68 +355,11 @@ enum TaskPriority {
   urgent
 }
 
-model Task {
-  id          Int      @id @default(autoincrement())
-  code        String   @unique
-  title       String
-  description String?
-  projectId   Int
-  ticketId    Int?
-  assignedToId Int?
-  category    String?
-  status      TaskStatus @default(pending)
-  priority    TaskPriority @default(medium)
-  startDate   DateTime?
-  endDate     DateTime?
-  timeEstimated String?
-  timeSpent     String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  includeInChangeLog Boolean  @default(false)
-
-  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  ticket      Ticket?  @relation(fields: [ticketId], references: [id])
-  assignedTo  User?    @relation(fields: [assignedToId], references: [id])
-  commits     Commit[]
-  workLogs    WorkLog[]
-}
-
-model Commit {
-  id          Int      @id @default(autoincrement())
-  taskId      Int
-  message     String
-  author      String
-  hash        String   @unique  // SHA del commit
-  repository  String   // owner/repo
-  url         String?  // URL al commit en GitHub
-  committedAt DateTime // Fecha del commit en GitHub
-  createdAt   DateTime @default(now())
-
-  task        Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
-}
-
 enum PaymentStatus {
   pending
   processed
   completed
   failed
-}
-
-model Payment {
-  id            Int      @id @default(autoincrement())
-  projectId     Int
-  amount        Decimal  @db.Decimal(10, 2)
-  currency      String   @default("ARS")
-  concept       String?
-  paymentMethod String?
-  status        PaymentStatus @default(pending)
-  fechaPago     DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  invoices      Invoice[]
 }
 
 enum InvoiceStatus {
@@ -247,96 +369,11 @@ enum InvoiceStatus {
   canceled
 }
 
-model Invoice {
-  id             Int      @id @default(autoincrement())
-  paymentId      Int
-  invoiceNumber  String   @unique
-  amount         Decimal  @db.Decimal(10, 2)
-  currency       String   @default("ARS")
-  emitted        DateTime @default(now())
-  expiresAt      DateTime?
-  status         InvoiceStatus @default(unpaid)
-  link           String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  payment        Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-}
-
-model File {
-  id          Int      @id @default(autoincrement())
-  projectId   Int
-  name        String
-  url         String
-  type        String?
-  size        Int?
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-}
-
 enum ServerStatus {
   active
   inactive
   maintenance
 }
-
-model Server {
-  id          Int      @id @default(autoincrement())
-  projectId   Int
-  name        String
-  type        String?
-  ip          String?
-  domain      String?
-  provider    String?
-  status      ServerStatus @default(active)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-}
-
-model Setting {
-  id          Int      @id @default(autoincrement())
-  key         String   @unique
-  value       String
-  description String?
-  isSystem    Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-// --- GITHUB INTEGRATION ---
-
-model GitHubSyncLog {
-  id            Int      @id @default(autoincrement())
-  repository    String   // owner/repo
-  status        String   // success, error
-  commitsFound  Int      @default(0)
-  commitsLinked Int      @default(0)
-  errorMessage  String?
-  startedAt     DateTime @default(now())
-  finishedAt    DateTime?
-}
-
-model CalendarEvent {
-  id          Int      @id @default(autoincrement())
-  userId      Int
-  title       String
-  description String?
-  date        DateTime @db.Date
-  isAllDay    Boolean  @default(false)
-  startTime   String?  // HH:mm format
-  endTime     String?  // HH:mm format
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-// --- WORK LOGS (Registro de trabajo en tareas) ---
 
 enum WorkLogType {
   desarrollo
@@ -347,18 +384,46 @@ enum WorkLogType {
   otro
 }
 
-model WorkLog {
-  id          Int         @id @default(autoincrement())
-  taskId      Int
-  userId      Int
-  summary     String      // Resumen del trabajo realizado
-  hours       Int         // Horas trabajadas (ej: 2)
-  minutes     Int         @default(0) // Minutos trabajados (ej: 30)
-  type        WorkLogType @default(desarrollo)
-  dateWorked  DateTime    @default(now()) // Fecha del trabajo
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+enum ArcaInvoiceStatus {
+  draft
+  pending
+  authorized
+  rejected
+  cancelled
+}
 
-  task        Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  user        User        @relation(fields: [userId], references: [id])
+enum ArcaInvoiceType {
+  factura_c
+  nota_credito_c
+  nota_debito_c
+}
+
+// --- WHATSAPP AUTO RESPONSES ---
+
+// Contexto general de cómo respondemos
+model WhatsAppContext {
+  id          Int      @id @default(autoincrement())
+  content     String   @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Tipos de respuestas rápidas/templates
+model WhatsAppResponseType {
+  id          Int      @id @default(autoincrement())
+  name        String
+  example     String   @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Contactos vinculados a números de WhatsApp
+model WhatsAppContact {
+  id          Int      @id @default(autoincrement())
+  jid         String   @unique
+  name        String
+  company     String?
+  notes       String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
