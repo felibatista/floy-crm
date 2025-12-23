@@ -203,43 +203,41 @@ export default function GitHubPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 gap-4">
-              <Card>
-                <CardContent className="p-3 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">Commits vinculados</p>
-                    <p className="font-bold">{stats.totalCommits}</p>
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="flex items-center justify-between p-3 border rounded-lg">
+                <div>
+                  <p className="font-medium">Commits vinculados</p>
+                  <p className="text-sm text-muted-    foreground">
+                    {stats.totalCommits}
+                  </p>
+                </div>
+              </div>
 
-              <Card>
-                <CardContent className="p-3 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">Repositorios</p>
-                    <p className="font-bold">{stats.reposConfigured}</p>
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="flex items-center justify-between p-3 border rounded-lg">
+                <div>
+                  <p className="font-medium">Repositorios</p>
+                  <p className="text-sm text-muted-foreground">
+                    {stats.reposConfigured}
+                  </p>
+                </div>
+              </div>
 
-              <Card>
-                <CardContent className="p-3 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">Estado</p>
-                    <p className="font-semibold text-green-600">Activo</p>
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="flex items-center justify-between p-3 border rounded-lg">
+                <div>
+                  <p className="font-medium">Estado</p>
+                  <p className="font-semibold text-green-600">Activo</p>
+                </div>
+              </div>
 
-              <Card>
-                <CardContent className="p-3 text-sm">
+              <div>
+                <div className="flex items-center justify-between p-3 border rounded-lg">
                   <div>
-                    <p className="text-muted-foreground">
-                      Última sincronización
+                    <p className="font-medium">Última sincronización</p>
+                    <p className="font-sm text-muted-foreground">
+                      {formatDate(stats.lastSync)}
                     </p>
-                    <p className="font-medium">{formatDate(stats.lastSync)}</p>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
