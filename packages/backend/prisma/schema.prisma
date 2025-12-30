@@ -101,6 +101,7 @@ model Project {
   client         Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
   servers        Server[]
   tasks          Task[]
+  arcaInvoices   ArcaInvoice[]
 }
 
 model Ticket {
@@ -167,6 +168,7 @@ model Payment {
   projectId     Int
   invoices      Invoice[]
   project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  arcaInvoices  ArcaInvoice[]
 }
 
 model Invoice {
@@ -281,6 +283,8 @@ model ArcaConfig {
 model ArcaInvoice {
   id                Int               @id @default(autoincrement())
   userId            Int
+  projectId         Int?
+  paymentId         Int?
   tipoComprobante   ArcaInvoiceType   @default(factura_c)
   puntoVenta        Int
   numero            Int?
@@ -306,9 +310,13 @@ model ArcaInvoice {
   createdAt         DateTime          @default(now())
   updatedAt         DateTime
   User              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project           Project?          @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  payment           Payment?          @relation(fields: [paymentId], references: [id], onDelete: SetNull)
 
   @@index([cae])
   @@index([userId, fechaEmision])
+  @@index([projectId])
+  @@index([paymentId])
 }
 
 enum LeadStatus {
