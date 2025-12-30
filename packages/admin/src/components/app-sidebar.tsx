@@ -12,6 +12,7 @@ import {
   CheckSquare,
   FolderKanban,
   MessageSquare,
+  Receipt,
 } from "lucide-react";
 
 import { NavMain } from "@/components/nav-main";
@@ -69,6 +70,11 @@ const data = {
       title: "Servidores",
       url: "/dashboard/servidores",
       icon: Server,
+    },
+    {
+      title: "Facturación",
+      url: "/dashboard/facturacion",
+      icon: Receipt,
     },
   ],
   config: {
