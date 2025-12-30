@@ -275,6 +275,10 @@ model ArcaConfig {
   inicioActividad DateTime?
   certificado     String?
   clavePrivada    String?
+  // Token de autenticación WSAA
+  wsaaToken       String?   @db.Text
+  wsaaSign        String?   @db.Text
+  wsaaExpiration  DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime
   User            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -288,6 +292,7 @@ model ArcaInvoice {
   tipoComprobante   ArcaInvoiceType   @default(factura_c)
   puntoVenta        Int
   numero            Int?
+  receptorCondicionIva Int               @default(5)
   receptorNombre    String
   receptorCuit      String?
   receptorDomicilio String?

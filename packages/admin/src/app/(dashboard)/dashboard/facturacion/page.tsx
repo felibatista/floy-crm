@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useDebounce } from "@/hooks/use-debounce";
 import { Button } from "@/components/ui/button";
-import { Settings } from "lucide-react";
+import { Settings, RefreshCw, Loader2 } from "lucide-react";
 import {
   BillingTable,
   BillingFilters,
@@ -46,6 +46,8 @@ export default function FacturacionPage() {
   // Form state
   const [formData, setFormData] = useState<InvoiceFormData>(initialFormData);
   const [creating, setCreating] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   const fetchInvoices = useCallback(
     async (page = 1) => {
@@ -121,7 +123,7 @@ export default function FacturacionPage() {
           },
           body: JSON.stringify({
             ...formData,
-            projectId: formData.projectId || undefined,
+            projectId: formData.projectId && formData.projectId !== "none" ? formData.projectId : undefined,
             paymentId: formData.paymentId || undefined,
           }),
         }
@@ -143,11 +145,49 @@ export default function FacturacionPage() {
     }
   };
 
+  const handleSync = async () => {
+    setSyncing(true);
+    setSyncMessage(null);
+    try {
+      const token = localStorage.getItem("admin_token");
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/admin/arca/sync?tipo=factura_c`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      const data = await res.json();
+
+      if (data.success) {
+        setSyncMessage(data.message);
+        if (data.synced > 0) {
+          fetchInvoices();
+          fetchStats();
+        }
+      } else {
+        setError(data.message || "Error al sincronizar");
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSyncing(false);
+      // Clear message after 5 seconds
+      setTimeout(() => setSyncMessage(null), 5000);
+    }
+  };
+
   return (
     <div className="h-full flex flex-col">
       {error && (
         <div className="bg-destructive/15 text-destructive px-4 py-3 rounded-md m-2">
           {error}
+        </div>
+      )}
+      {syncMessage && (
+        <div className="bg-green-500/15 text-green-600 px-4 py-3 rounded-md m-2">
+          {syncMessage}
         </div>
       )}
 
@@ -163,6 +203,20 @@ export default function FacturacionPage() {
             onCreate={handleCreate}
             creating={creating}
           />
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs"
+            onClick={handleSync}
+            disabled={syncing}
+          >
+            {syncing ? (
+              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-1" />
+            )}
+            Sincronizar ARCA
+          </Button>
           <Button
             variant="outline"
             size="sm"

@@ -25,6 +25,7 @@ import {
   AlertCircle,
   CheckCircle,
   XCircle,
+  Download,
 } from "lucide-react";
 import {
   ArcaInvoice,
@@ -57,6 +58,7 @@ export default function FacturaDetailPage() {
   const [authorizing, setAuthorizing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [downloadingPDF, setDownloadingPDF] = useState(false);
 
   useEffect(() => {
     document.title = "Factura | Acentus";
@@ -145,6 +147,151 @@ export default function FacturaDetailPage() {
     }
   };
 
+  const handleDownloadPDF = async () => {
+    if (!invoice) return;
+
+    setDownloadingPDF(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem("admin_token");
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/admin/arca/pdf/${invoice.id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Error al obtener datos del PDF");
+      }
+
+      const data = await res.json();
+
+      // Generate PDF using the data and QR URL
+      generateInvoicePDF(data.invoice, data.config, data.qrUrl);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setDownloadingPDF(false);
+    }
+  };
+
+  const generateInvoicePDF = (invoiceData: any, config: any, qrUrl: string) => {
+    // Create a printable HTML and trigger print dialog (acts as PDF generator)
+    const invoiceNumber = invoiceData.numero
+      ? `${String(invoiceData.puntoVenta).padStart(4, "0")}-${String(invoiceData.numero).padStart(8, "0")}`
+      : "Sin número";
+
+    const tipoLabel = tipoComprobanteConfig[invoiceData.tipoComprobante]?.label || invoiceData.tipoComprobante;
+    const letraTipo = invoiceData.tipoComprobante.includes("_c") ? "C" : "B";
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Factura ${invoiceNumber}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; font-size: 12px; padding: 20px; max-width: 800px; margin: 0 auto; }
+    .header { display: flex; justify-content: space-between; border: 2px solid #000; padding: 15px; margin-bottom: 20px; }
+    .header-left { flex: 1; }
+    .header-center { width: 80px; text-align: center; border-left: 2px solid #000; border-right: 2px solid #000; padding: 0 15px; }
+    .header-right { flex: 1; text-align: right; padding-left: 15px; }
+    .tipo-letra { font-size: 36px; font-weight: bold; }
+    .tipo-label { font-size: 10px; }
+    .empresa { font-size: 16px; font-weight: bold; margin-bottom: 5px; }
+    .cuit { font-size: 11px; }
+    .comprobante-info { font-size: 14px; font-weight: bold; margin-bottom: 5px; }
+    .section { border: 1px solid #ccc; padding: 10px; margin-bottom: 15px; }
+    .section-title { font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
+    .row { display: flex; margin-bottom: 5px; }
+    .label { width: 150px; color: #666; }
+    .value { flex: 1; }
+    .totals { text-align: right; font-size: 14px; }
+    .total-row { display: flex; justify-content: flex-end; margin-bottom: 5px; }
+    .total-label { width: 150px; }
+    .total-value { width: 120px; text-align: right; }
+    .total-final { font-size: 18px; font-weight: bold; border-top: 2px solid #000; padding-top: 10px; }
+    .cae-section { display: flex; justify-content: space-between; align-items: center; border: 2px solid #000; padding: 15px; margin-top: 20px; }
+    .cae-info { flex: 1; }
+    .qr-code { width: 120px; height: 120px; }
+    .qr-code img { width: 100%; height: 100%; }
+    .footer { text-align: center; margin-top: 20px; font-size: 10px; color: #666; }
+    @media print { body { padding: 0; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-left">
+      <div class="empresa">${config.razonSocial}</div>
+      <div class="cuit">CUIT: ${config.cuit}</div>
+      <div>${config.domicilioFiscal || ''}</div>
+      <div style="margin-top: 10px;">Condición IVA: ${config.condicionIva === 'monotributo' ? 'Monotributo' : config.condicionIva}</div>
+    </div>
+    <div class="header-center">
+      <div class="tipo-letra">${letraTipo}</div>
+      <div class="tipo-label">COD. ${invoiceData.tipoComprobante === 'factura_c' ? '11' : invoiceData.tipoComprobante === 'nota_credito_c' ? '13' : '12'}</div>
+    </div>
+    <div class="header-right">
+      <div class="comprobante-info">${tipoLabel}</div>
+      <div class="comprobante-info">Nº ${invoiceNumber}</div>
+      <div style="margin-top: 10px;">Fecha: ${formatDate(invoiceData.fechaEmision)}</div>
+      <div>Punto de Venta: ${String(invoiceData.puntoVenta).padStart(4, "0")}</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Datos del Receptor</div>
+    <div class="row"><span class="label">Nombre/Razón Social:</span><span class="value">${invoiceData.receptorNombre}</span></div>
+    ${invoiceData.receptorCuit ? `<div class="row"><span class="label">CUIT:</span><span class="value">${invoiceData.receptorCuit}</span></div>` : ''}
+    ${invoiceData.receptorDomicilio ? `<div class="row"><span class="label">Domicilio:</span><span class="value">${invoiceData.receptorDomicilio}</span></div>` : ''}
+  </div>
+
+  <div class="section">
+    <div class="section-title">Concepto</div>
+    <div class="row"><span class="label">Descripción:</span><span class="value">${invoiceData.concepto}</span></div>
+    ${invoiceData.conceptoTipo !== 1 ? `
+    <div class="row"><span class="label">Período:</span><span class="value">${formatDate(invoiceData.periodoDesde)} al ${formatDate(invoiceData.periodoHasta)}</span></div>
+    ` : ''}
+  </div>
+
+  <div class="section totals">
+    <div class="total-row"><span class="total-label">Importe Neto:</span><span class="total-value">${formatCurrency(invoiceData.importeNeto, invoiceData.moneda)}</span></div>
+    <div class="total-row total-final"><span class="total-label">TOTAL:</span><span class="total-value">${formatCurrency(invoiceData.importeTotal, invoiceData.moneda)}</span></div>
+  </div>
+
+  ${invoiceData.cae ? `
+  <div class="cae-section">
+    <div class="cae-info">
+      <div><strong>CAE:</strong> ${invoiceData.cae}</div>
+      <div><strong>Vencimiento CAE:</strong> ${formatDate(invoiceData.caeVencimiento)}</div>
+    </div>
+    <div class="qr-code">
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(qrUrl)}" alt="QR AFIP" />
+    </div>
+  </div>
+  ` : ''}
+
+  <div class="footer">
+    Este documento es una representación impresa de un Comprobante Fiscal Electrónico
+  </div>
+</body>
+</html>
+    `;
+
+    // Open print window
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+      printWindow.onload = () => {
+        printWindow.print();
+      };
+    }
+  };
+
   if (loading) {
     return (
       <div className="h-full flex flex-col p-4">
@@ -208,6 +355,20 @@ export default function FacturaDetailPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          {invoice.status === "authorized" && invoice.cae && (
+            <Button
+              variant="outline"
+              onClick={handleDownloadPDF}
+              disabled={downloadingPDF}
+            >
+              {downloadingPDF ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4 mr-2" />
+              )}
+              Descargar PDF
+            </Button>
+          )}
           {canAuthorize && (
             <Button onClick={handleAuthorize} disabled={authorizing}>
               {authorizing ? (

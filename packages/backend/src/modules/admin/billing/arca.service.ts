@@ -1,6 +1,7 @@
 import { prisma } from "../../../lib/prisma";
 import { ArcaInvoiceType } from "@prisma/client";
 import * as crypto from "crypto";
+import * as forge from "node-forge";
 
 // ARCA/AFIP Webservice URLs
 const ARCA_URLS = {
@@ -31,6 +32,9 @@ interface ArcaConfig {
   condicionIva: string;
   certificado: string | null;
   clavePrivada: string | null;
+  wsaaToken?: string | null;
+  wsaaSign?: string | null;
+  wsaaExpiration?: Date | null;
 }
 
 interface InvoiceData {
@@ -137,52 +141,219 @@ export class ArcaService {
   async validateCertificate(userId: number): Promise<{
     valid: boolean;
     message: string;
+    tokenInfo?: {
+      hasToken: boolean;
+      expiration?: string;
+      isExpired?: boolean;
+    };
+    debug?: any;
   }> {
     const config = await this.getConfig(userId);
+    const debug: any = {
+      timestamp: new Date().toISOString(),
+      steps: [],
+    };
+
+    debug.steps.push({ step: "getConfig", hasConfig: !!config });
 
     if (!config) {
-      return { valid: false, message: "No hay configuración ARCA para este usuario" };
+      return {
+        valid: false,
+        message: "No hay configuración ARCA para este usuario",
+        debug,
+      };
     }
 
+    debug.steps.push({
+      step: "checkCertificates",
+      hasCertificado: !!config.certificado,
+      hasClavePrivada: !!config.clavePrivada,
+      certificadoLength: config.certificado?.length || 0,
+      clavePrivadaLength: config.clavePrivada?.length || 0,
+      certificadoPreview: config.certificado?.substring(0, 100) + "...",
+      clavePrivadaPreview: config.clavePrivada?.substring(0, 100) + "...",
+    });
+
     if (!config.certificado || !config.clavePrivada) {
-      return { valid: false, message: "No hay certificado o clave privada configurados" };
+      return {
+        valid: false,
+        message: "No hay certificado o clave privada configurados",
+        debug,
+      };
     }
 
     try {
       // Try to generate a login ticket to validate the certificate
-      const token = await this.authenticateWSAA(config);
+      const tokenResult = await this.authenticateWSAA(config, debug, userId);
+      debug.steps.push({
+        step: "authenticateWSAA_success",
+        hasToken: !!tokenResult,
+      });
+
+      // Obtener info del token guardado
+      const updatedConfig = await this.getConfig(userId);
+      const tokenInfo = {
+        hasToken: !!updatedConfig?.wsaaToken,
+        expiration: updatedConfig?.wsaaExpiration?.toISOString(),
+        isExpired: updatedConfig?.wsaaExpiration
+          ? new Date() > updatedConfig.wsaaExpiration
+          : true,
+      };
+
       return {
-        valid: !!token,
-        message: token ? "Certificado válido" : "Error de autenticación",
+        valid: !!tokenResult,
+        message: tokenResult ? "Certificado válido" : "Error de autenticación",
+        tokenInfo,
+        debug,
       };
     } catch (error: any) {
+      debug.steps.push({
+        step: "authenticateWSAA_error",
+        error: error.message,
+        stack: error.stack,
+      });
       return {
         valid: false,
         message: `Error al validar certificado: ${error.message}`,
+        debug,
       };
     }
+  }
+
+  /**
+   * Get current token status
+   */
+  async getTokenStatus(userId: number): Promise<{
+    hasToken: boolean;
+    isValid: boolean;
+    expiration?: string;
+    expiresIn?: string;
+  }> {
+    const config = await this.getConfig(userId);
+
+    if (!config?.wsaaToken || !config?.wsaaExpiration) {
+      return { hasToken: false, isValid: false };
+    }
+
+    const now = new Date();
+    const expiration = new Date(config.wsaaExpiration);
+    const isValid = now < expiration;
+    const diffMs = expiration.getTime() - now.getTime();
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+    return {
+      hasToken: true,
+      isValid,
+      expiration: expiration.toISOString(),
+      expiresIn: isValid ? `${diffHours}h ${diffMinutes}m` : "Expirado",
+    };
+  }
+
+  /**
+   * Get full token data for editing
+   */
+  async getTokenData(userId: number): Promise<{
+    token: string | null;
+    sign: string | null;
+    expiration: string | null;
+    isValid: boolean;
+  }> {
+    const config = await this.getConfig(userId);
+
+    if (!config) {
+      return { token: null, sign: null, expiration: null, isValid: false };
+    }
+
+    const now = new Date();
+    const expiration = config.wsaaExpiration ? new Date(config.wsaaExpiration) : null;
+    const isValid = expiration ? now < expiration : false;
+
+    return {
+      token: config.wsaaToken || null,
+      sign: config.wsaaSign || null,
+      expiration: expiration?.toISOString() || null,
+      isValid,
+    };
+  }
+
+  /**
+   * Update token manually
+   */
+  async updateToken(userId: number, token: string, sign: string, expiration?: Date): Promise<void> {
+    const exp = expiration || new Date(Date.now() + 12 * 60 * 60 * 1000); // Default 12 hours
+
+    await prisma.arcaConfig.update({
+      where: { userId },
+      data: {
+        //@ts-ignore
+        wsaaToken: token,
+        wsaaSign: sign,
+        wsaaExpiration: exp,
+        updatedAt: new Date(),
+      },
+    });
   }
 
   /**
    * Authenticate with WSAA (Web Service de Autenticación y Autorización)
    * This is the first step to interact with any AFIP web service
    */
-  private async authenticateWSAA(config: ArcaConfig): Promise<string | null> {
+  private async authenticateWSAA(
+    config: ArcaConfig,
+    debug?: any,
+    userId?: number
+  ): Promise<string | null> {
     if (!config.certificado || !config.clavePrivada) {
       throw new Error("Certificado o clave privada no configurados");
     }
 
+    const urls = this.getUrls();
+    const environment = this.isProduction ? "PRODUCCION" : "HOMOLOGACION";
+
+    console.log("[ARCA DEBUG] ============================================");
+    console.log("[ARCA DEBUG] Ambiente:", environment);
+    console.log("[ARCA DEBUG] URL WSAA:", urls.wsaa);
+    console.log("[ARCA DEBUG] ============================================");
+
+    debug?.steps?.push({
+      step: "environment",
+      isProduction: this.isProduction,
+      environment,
+      wsaaUrl: urls.wsaa,
+      note: "IMPORTANTE: El certificado debe coincidir con el ambiente. Certificados de producción NO funcionan en homologación y viceversa.",
+    });
+
     // Generate TRA (Ticket de Requerimiento de Acceso)
     const tra = this.generateTRA();
+    debug?.steps?.push({ step: "generateTRA", tra });
 
     // Sign TRA with certificate and private key
-    const cms = this.signTRA(tra, config.certificado, config.clavePrivada);
+    const cms = this.signTRA(
+      tra,
+      config.certificado,
+      config.clavePrivada,
+      debug
+    );
+    debug?.steps?.push({
+      step: "signTRA_result",
+      cmsLength: cms.length,
+      cmsPreview: cms.substring(0, 200) + "...",
+    });
 
     // Send to WSAA
-    const urls = this.getUrls();
     const soapRequest = this.buildWSAARequest(cms);
+    debug?.steps?.push({
+      step: "buildWSAARequest",
+      url: urls.wsaa,
+      soapRequestLength: soapRequest.length,
+      soapRequestPreview: soapRequest.substring(0, 500) + "...",
+    });
 
     try {
+      console.log("[ARCA DEBUG] Sending request to WSAA:", urls.wsaa);
+      console.log("[ARCA DEBUG] CMS length:", cms.length);
+
       const response = await fetch(urls.wsaa, {
         method: "POST",
         headers: {
@@ -193,57 +364,353 @@ export class ArcaService {
       });
 
       const responseText = await response.text();
+      console.log("[ARCA DEBUG] WSAA Response status:", response.status);
+      console.log(
+        "[ARCA DEBUG] WSAA Response:",
+        responseText.substring(0, 1000)
+      );
+
+      debug?.steps?.push({
+        step: "wsaaResponse",
+        status: response.status,
+        responseLength: responseText.length,
+        responsePreview: responseText.substring(0, 1000),
+      });
 
       // Parse response to get token and sign
-      const token = this.parseWSAAResponse(responseText);
-      return token;
+      const tokenData = this.parseWSAAResponse(responseText);
+
+      // Guardar el token en la base de datos si tenemos userId
+      if (tokenData && userId) {
+        const parsed = JSON.parse(tokenData);
+        if (parsed.token !== "EXISTING_VALID_TOKEN") {
+          // Extraer expiración de la respuesta
+          const expirationMatch = responseText.match(
+            /expirationTime[>"]([^<"]+)/
+          );
+          let expiration: Date | null = null;
+          if (expirationMatch) {
+            // Decodificar entidades HTML si es necesario
+            const expStr = expirationMatch[1]
+              .replace(/&lt;/g, "<")
+              .replace(/&gt;/g, ">")
+              .replace(/&amp;/g, "&");
+            expiration = new Date(expStr);
+          } else {
+            // Si no encontramos la expiración, asumimos 12 horas (default de AFIP)
+            expiration = new Date(Date.now() + 12 * 60 * 60 * 1000);
+          }
+
+          console.log(
+            "[ARCA DEBUG] Guardando token en DB, expira:",
+            expiration
+          );
+
+          await prisma.arcaConfig.update({
+            where: { userId },
+            data: {
+              //@ts-ignore
+              wsaaToken: parsed.token,
+              wsaaSign: parsed.sign,
+              wsaaExpiration: expiration,
+              updatedAt: new Date(),
+            },
+          });
+        }
+      }
+
+      return tokenData;
     } catch (error: any) {
-      console.error("WSAA Authentication error:", error);
+      console.error("[ARCA DEBUG] WSAA Authentication error:", error);
+      debug?.steps?.push({ step: "wsaaFetchError", error: error.message });
       throw new Error(`Error de autenticación WSAA: ${error.message}`);
     }
   }
 
   /**
    * Generate TRA (Ticket de Requerimiento de Acceso)
+   * AFIP requiere fechas en formato ISO 8601 con timezone
    */
   private generateTRA(): string {
     const now = new Date();
-    const generationTime = new Date(now.getTime() - 10 * 60 * 1000); // 10 minutes ago
+    // AFIP permite un margen de tiempo, usamos 1 minuto atrás y 10 minutos adelante
+    const generationTime = new Date(now.getTime() - 1 * 60 * 1000); // 1 minute ago
     const expirationTime = new Date(now.getTime() + 10 * 60 * 1000); // 10 minutes from now
 
-    const formatDate = (d: Date) => d.toISOString().replace(/\.\d{3}Z$/, "");
+    // Formato ISO 8601 con timezone offset (AFIP lo requiere así)
+    // Ejemplo: 2024-01-15T10:30:00-03:00
+    const formatDateWithTimezone = (d: Date): string => {
+      const pad = (n: number) => n.toString().padStart(2, "0");
 
-    return `<?xml version="1.0" encoding="UTF-8"?>
+      const year = d.getFullYear();
+      const month = pad(d.getMonth() + 1);
+      const day = pad(d.getDate());
+      const hours = pad(d.getHours());
+      const minutes = pad(d.getMinutes());
+      const seconds = pad(d.getSeconds());
+
+      // Obtener offset del timezone local
+      const tzOffset = -d.getTimezoneOffset();
+      const tzHours = pad(Math.floor(Math.abs(tzOffset) / 60));
+      const tzMinutes = pad(Math.abs(tzOffset) % 60);
+      const tzSign = tzOffset >= 0 ? "+" : "-";
+
+      return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${tzSign}${tzHours}:${tzMinutes}`;
+    };
+
+    const tra = `<?xml version="1.0" encoding="UTF-8"?>
 <loginTicketRequest version="1.0">
   <header>
     <uniqueId>${Math.floor(Date.now() / 1000)}</uniqueId>
-    <generationTime>${formatDate(generationTime)}</generationTime>
-    <expirationTime>${formatDate(expirationTime)}</expirationTime>
+    <generationTime>${formatDateWithTimezone(generationTime)}</generationTime>
+    <expirationTime>${formatDateWithTimezone(expirationTime)}</expirationTime>
   </header>
   <service>wsfe</service>
 </loginTicketRequest>`;
+
+    console.log("[ARCA DEBUG] TRA generado:");
+    console.log(
+      "[ARCA DEBUG] - Generation Time:",
+      formatDateWithTimezone(generationTime)
+    );
+    console.log(
+      "[ARCA DEBUG] - Expiration Time:",
+      formatDateWithTimezone(expirationTime)
+    );
+    console.log("[ARCA DEBUG] - Current Time:", formatDateWithTimezone(now));
+
+    return tra;
   }
 
   /**
-   * Sign TRA with certificate (placeholder - requires proper implementation)
+   * Sign TRA with certificate to create CMS/PKCS#7
+   * AFIP requires a proper PKCS#7 signed message
    */
-  private signTRA(tra: string, certificado: string, clavePrivada: string): string {
-    // This is a simplified version. In production, you need to:
-    // 1. Create a PKCS#7 signed message using the certificate and private key
-    // 2. Return the base64-encoded CMS
+  private signTRA(
+    tra: string,
+    certificado: string,
+    clavePrivada: string,
+    debug?: any
+  ): string {
+    debug?.steps?.push({
+      step: "signTRA_start",
+      traLength: tra.length,
+      certificadoFormat: this.detectCertFormat(certificado),
+      clavePrivadaFormat: this.detectKeyFormat(clavePrivada),
+    });
 
-    // For now, return a placeholder
-    // Real implementation would use node-forge or similar library
-    const sign = crypto.createSign("RSA-SHA256");
-    sign.update(tra);
+    // Normalizar el certificado y la clave privada
+    const certPem = this.normalizePEM(certificado, "CERTIFICATE");
+    let keyPem = this.normalizePEM(clavePrivada, "PRIVATE KEY");
+
+    // Si la clave es RSA PRIVATE KEY, intentar ese formato
+    if (
+      clavePrivada.includes("RSA PRIVATE KEY") ||
+      !clavePrivada.includes("BEGIN")
+    ) {
+      const rsaKeyPem = this.normalizePEM(clavePrivada, "RSA PRIVATE KEY");
+      // Intentar primero RSA
+      try {
+        forge.pki.privateKeyFromPem(rsaKeyPem);
+        keyPem = rsaKeyPem;
+      } catch {
+        // Si falla, mantener el formato PKCS8
+      }
+    }
+
+    debug?.steps?.push({
+      step: "signTRA_normalized",
+      certPemPreview: certPem.substring(0, 200) + "...",
+      keyPemPreview: keyPem.substring(0, 200) + "...",
+    });
 
     try {
-      const signature = sign.sign(clavePrivada, "base64");
-      return Buffer.from(tra + signature).toString("base64");
-    } catch {
-      // If signing fails, just return base64 of TRA for development
-      return Buffer.from(tra).toString("base64");
+      // Verificar certificado con Node.js crypto primero (para debug)
+      try {
+        const certObj = new crypto.X509Certificate(certPem);
+        const issuerCN = certObj.issuer;
+        const isAfipCert =
+          issuerCN.includes("AFIP") || issuerCN.includes("Computadores");
+
+        debug?.steps?.push({
+          step: "signTRA_certParsed_node",
+          subject: certObj.subject,
+          issuer: certObj.issuer,
+          validFrom: certObj.validFrom,
+          validTo: certObj.validTo,
+          serialNumber: certObj.serialNumber,
+          isAfipCert,
+          warning: !isAfipCert
+            ? "ADVERTENCIA: El certificado NO parece estar firmado por AFIP. Debe usar un certificado emitido por AFIP."
+            : null,
+        });
+
+        if (!isAfipCert) {
+          console.log(
+            "[ARCA DEBUG] ADVERTENCIA: El certificado no está firmado por AFIP!"
+          );
+          console.log("[ARCA DEBUG] Issuer:", certObj.issuer);
+          console.log(
+            "[ARCA DEBUG] El certificado debe ser generado desde AFIP con clave fiscal"
+          );
+        }
+      } catch (nodeErr: any) {
+        debug?.steps?.push({
+          step: "signTRA_certParsed_node_error",
+          error: nodeErr.message,
+        });
+      }
+
+      // Parsear certificado con node-forge
+      console.log("[ARCA DEBUG] Parseando certificado con node-forge...");
+      const forgeCert = forge.pki.certificateFromPem(certPem);
+
+      const issuerStr = forgeCert.issuer.attributes
+        .map((a: any) => `${a.shortName}=${a.value}`)
+        .join(", ");
+      const subjectStr = forgeCert.subject.attributes
+        .map((a: any) => `${a.shortName}=${a.value}`)
+        .join(", ");
+
+      debug?.steps?.push({
+        step: "signTRA_forgeCertParsed",
+        subject: subjectStr,
+        issuer: issuerStr,
+        serialNumber: forgeCert.serialNumber,
+        validFrom: forgeCert.validity.notBefore.toISOString(),
+        validTo: forgeCert.validity.notAfter.toISOString(),
+      });
+
+      console.log("[ARCA DEBUG] Certificado Subject:", subjectStr);
+      console.log("[ARCA DEBUG] Certificado Issuer:", issuerStr);
+
+      // Parsear clave privada con node-forge
+      console.log("[ARCA DEBUG] Parseando clave privada con node-forge...");
+      let forgePrivateKey: forge.pki.PrivateKey;
+
+      try {
+        forgePrivateKey = forge.pki.privateKeyFromPem(keyPem);
+        debug?.steps?.push({
+          step: "signTRA_forgeKeyParsed",
+          format: "success",
+        });
+      } catch (keyErr1: any) {
+        debug?.steps?.push({
+          step: "signTRA_forgeKeyParsed_error",
+          error: keyErr1.message,
+        });
+        throw new Error(
+          `No se pudo parsear la clave privada: ${keyErr1.message}`
+        );
+      }
+
+      console.log(
+        "[ARCA DEBUG] Creando PKCS#7 signed message (detached=false)..."
+      );
+
+      // Crear mensaje PKCS#7 firmado - AFIP espera el contenido embebido
+      const p7 = forge.pkcs7.createSignedData();
+
+      // Agregar el contenido (TRA XML) - debe estar embebido
+      p7.content = forge.util.createBuffer(tra, "utf8");
+
+      // Agregar el certificado del firmante
+      p7.addCertificate(forgeCert);
+
+      // Agregar el firmante con SHA256
+      p7.addSigner({
+        key: forgePrivateKey,
+        certificate: forgeCert,
+        digestAlgorithm: forge.pki.oids.sha256,
+        authenticatedAttributes: [
+          {
+            type: forge.pki.oids.contentType,
+            value: forge.pki.oids.data,
+          },
+          {
+            type: forge.pki.oids.messageDigest,
+            // value se calcula automáticamente
+          },
+          {
+            type: forge.pki.oids.signingTime,
+            value: new Date() as any,
+          },
+        ],
+      });
+
+      // Firmar - detached=false para incluir el contenido
+      console.log("[ARCA DEBUG] Firmando PKCS#7...");
+      p7.sign({ detached: false });
+
+      debug?.steps?.push({
+        step: "signTRA_pkcs7Signed",
+        message: "PKCS#7 firmado correctamente",
+      });
+
+      // Convertir a DER y luego a base64
+      const asn1 = p7.toAsn1();
+      const der = forge.asn1.toDer(asn1);
+      const cms = forge.util.encode64(der.getBytes());
+
+      console.log("[ARCA DEBUG] CMS generado, longitud:", cms.length);
+
+      debug?.steps?.push({
+        step: "signTRA_cmsCreated",
+        cmsLength: cms.length,
+        cmsPreview: cms.substring(0, 200) + "...",
+      });
+
+      return cms;
+    } catch (error: any) {
+      console.error("[ARCA DEBUG] Error en signTRA:", error);
+      debug?.steps?.push({
+        step: "signTRA_error",
+        error: error.message,
+        stack: error.stack,
+      });
+      throw new Error(`Error firmando TRA: ${error.message}`);
     }
+  }
+
+  /**
+   * Detectar formato del certificado
+   */
+  private detectCertFormat(cert: string): string {
+    if (cert.includes("-----BEGIN CERTIFICATE-----")) return "PEM";
+    if (cert.includes("-----BEGIN X509 CERTIFICATE-----")) return "PEM_X509";
+    if (/^[A-Za-z0-9+/=\s]+$/.test(cert)) return "BASE64_DER";
+    return "UNKNOWN";
+  }
+
+  /**
+   * Detectar formato de la clave privada
+   */
+  private detectKeyFormat(key: string): string {
+    if (key.includes("-----BEGIN PRIVATE KEY-----")) return "PKCS8_PEM";
+    if (key.includes("-----BEGIN RSA PRIVATE KEY-----")) return "PKCS1_PEM";
+    if (key.includes("-----BEGIN ENCRYPTED PRIVATE KEY-----"))
+      return "ENCRYPTED_PEM";
+    if (/^[A-Za-z0-9+/=\s]+$/.test(key)) return "BASE64_DER";
+    return "UNKNOWN";
+  }
+
+  /**
+   * Normalizar PEM (agregar headers si faltan)
+   */
+  private normalizePEM(content: string, type: string): string {
+    const trimmed = content.trim();
+
+    // Si ya tiene headers PEM, devolverlo como está
+    if (trimmed.startsWith("-----BEGIN")) {
+      return trimmed;
+    }
+
+    // Si es base64 sin headers, agregar headers
+    const base64Clean = trimmed.replace(/\s/g, "");
+    const lines = base64Clean.match(/.{1,64}/g) || [];
+    return `-----BEGIN ${type}-----\n${lines.join(
+      "\n"
+    )}\n-----END ${type}-----`;
   }
 
   /**
@@ -265,11 +732,30 @@ export class ArcaService {
    * Parse WSAA response to extract token and sign
    */
   private parseWSAAResponse(response: string): string | null {
+    // La respuesta de AFIP viene con el XML interno escapado como HTML entities
+    // Primero decodificamos las entidades HTML
+    const decodedResponse = response
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&amp;/g, "&")
+      .replace(/&quot;/g, '"')
+      .replace(/&#xE1;/g, "á")
+      .replace(/&#xE9;/g, "é")
+      .replace(/&#xED;/g, "í")
+      .replace(/&#xF3;/g, "ó")
+      .replace(/&#xFA;/g, "ú")
+      .replace(/&#xFC;/g, "ü");
+
+    console.log("[ARCA DEBUG] Parsing WSAA response...");
+
     // Extract token from SOAP response
-    const tokenMatch = response.match(/<token>([^<]+)<\/token>/);
-    const signMatch = response.match(/<sign>([^<]+)<\/sign>/);
+    const tokenMatch = decodedResponse.match(/<token>([^<]+)<\/token>/);
+    const signMatch = decodedResponse.match(/<sign>([^<]+)<\/sign>/);
 
     if (tokenMatch && signMatch) {
+      console.log("[ARCA DEBUG] Token y Sign encontrados!");
+      console.log("[ARCA DEBUG] Token length:", tokenMatch[1].length);
+      console.log("[ARCA DEBUG] Sign length:", signMatch[1].length);
       return JSON.stringify({
         token: tokenMatch[1],
         sign: signMatch[1],
@@ -277,11 +763,33 @@ export class ArcaService {
     }
 
     // Check for errors
-    const faultMatch = response.match(/<faultstring>([^<]+)<\/faultstring>/);
+    const faultMatch = decodedResponse.match(
+      /<faultstring>([^<]+)<\/faultstring>/
+    );
     if (faultMatch) {
-      throw new Error(faultMatch[1]);
+      const errorMessage = faultMatch[1];
+      console.log("[ARCA DEBUG] Error en respuesta WSAA:", errorMessage);
+
+      // Si ya tiene un TA válido, el certificado es válido
+      if (
+        errorMessage.includes("ya posee un TA valido") ||
+        errorMessage.includes("ya posee un TA válido")
+      ) {
+        console.log(
+          "[ARCA DEBUG] El certificado es válido - ya existe un token activo"
+        );
+        // Retornamos un token placeholder para indicar que la autenticación es válida
+        return JSON.stringify({
+          token: "EXISTING_VALID_TOKEN",
+          sign: "EXISTING_VALID_SIGN",
+          note: "Ya existe un token válido para este servicio",
+        });
+      }
+
+      throw new Error(errorMessage);
     }
 
+    console.log("[ARCA DEBUG] No se encontró token ni error en la respuesta");
     return null;
   }
 
@@ -297,19 +805,117 @@ export class ArcaService {
       throw new Error("No hay configuración ARCA");
     }
 
-    // In production, this would call FECompUltimoAutorizado
-    // For now, return the next number based on existing invoices
-    const lastInvoice = await prisma.arcaInvoice.findFirst({
-      where: {
-        userId,
-        tipoComprobante,
-        puntoVenta: config.puntoVenta,
-        numero: { not: null },
-      },
-      orderBy: { numero: "desc" },
-    });
+    // Obtener token válido
+    let authToken: string | null = null;
+    if (config.wsaaToken && config.wsaaSign && config.wsaaExpiration) {
+      const now = new Date();
+      const expiration = new Date(config.wsaaExpiration);
+      if (now < expiration) {
+        authToken = JSON.stringify({
+          token: config.wsaaToken,
+          sign: config.wsaaSign,
+        });
+      }
+    }
+    if (!authToken) {
+      authToken = await this.authenticateWSAA(config, undefined, userId);
+      if (authToken) {
+        const parsed = JSON.parse(authToken);
+        if (parsed.token === "EXISTING_VALID_TOKEN") {
+          const refreshedConfig = await this.getConfig(userId);
+          if (refreshedConfig?.wsaaToken && refreshedConfig?.wsaaSign) {
+            authToken = JSON.stringify({
+              token: refreshedConfig.wsaaToken,
+              sign: refreshedConfig.wsaaSign,
+            });
+          } else {
+            throw new Error(
+              "AFIP indica que ya existe un token válido pero no lo tenemos guardado. Por favor, espere unos minutos e intente nuevamente."
+            );
+          }
+        }
+      }
+    }
+    if (!authToken) {
+      throw new Error("No se pudo autenticar con WSAA");
+    }
 
-    return (lastInvoice?.numero || 0) + 1;
+    // Llamar a FECompUltimoAutorizado
+    const numero = await this.callFECompUltimoAutorizado(
+      config,
+      authToken,
+      tipoComprobante
+    );
+    return numero + 1;
+  }
+
+  /**
+   * Llama a FECompUltimoAutorizado para obtener el último número autorizado
+   */
+  private async callFECompUltimoAutorizado(
+    config: ArcaConfig,
+    authToken: string,
+    tipoComprobante: ArcaInvoiceType
+  ): Promise<number> {
+    const urls = this.getUrls();
+    const auth = JSON.parse(authToken);
+    const cbteCode = COMPROBANTE_CODES[tipoComprobante];
+    const soapRequest = `<?xml version="1.0" encoding="UTF-8"?>
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ar="http://ar.gov.afip.dif.FEV1/">
+  <soapenv:Header/>
+  <soapenv:Body>
+    <ar:FECompUltimoAutorizado>
+      <ar:Auth>
+        <ar:Token>${auth.token}</ar:Token>
+        <ar:Sign>${auth.sign}</ar:Sign>
+        <ar:Cuit>${config.cuit.replace(/-/g, "")}</ar:Cuit>
+      </ar:Auth>
+      <ar:PtoVta>${config.puntoVenta}</ar:PtoVta>
+      <ar:CbteTipo>${cbteCode}</ar:CbteTipo>
+    </ar:FECompUltimoAutorizado>
+  </soapenv:Body>
+</soapenv:Envelope>`;
+
+    // DEBUG LOGGING
+    console.log("[ARCA DEBUG] callFECompUltimoAutorizado called");
+    console.log("[ARCA DEBUG] URLs:", urls);
+    console.log("[ARCA DEBUG] Auth: ", auth);
+    console.log("[ARCA DEBUG] tipoComprobante:", tipoComprobante, "cbteCode:", cbteCode);
+    console.log("[ARCA DEBUG] SOAP Request:\n", soapRequest);
+
+    try {
+      const response = await fetch(urls.wsfe, {
+        method: "POST",
+        headers: {
+          "Content-Type": "text/xml; charset=utf-8",
+          SOAPAction: "http://ar.gov.afip.dif.FEV1/FECompUltimoAutorizado",
+        },
+        body: soapRequest,
+      });
+      const responseText = await response.text();
+      console.log("[ARCA DEBUG] FECompUltimoAutorizado HTTP status:", response.status);
+      console.log("[ARCA DEBUG] FECompUltimoAutorizado response (first 1000 chars):\n", responseText.substring(0, 1000));
+      // Buscar <CbteNro> en la respuesta
+      const match = responseText.match(/<CbteNro>(\d+)<\/CbteNro>/);
+      if (match) {
+        console.log("[ARCA DEBUG] <CbteNro> found:", match[1]);
+        return parseInt(match[1], 10);
+      }
+      // Si no hay comprobantes, devolver 0
+      if (
+        responseText.includes(
+          "No existen comprobantes emitidos para los parámetros informados"
+        )
+      ) {
+        console.log("[ARCA DEBUG] No existen comprobantes emitidos para los parámetros informados");
+        return 0;
+      }
+      console.log("[ARCA DEBUG] No <CbteNro> found and no known error message. Full response:", responseText);
+      throw new Error("No se pudo obtener el último número autorizado de AFIP");
+    } catch (error: any) {
+      console.error("[ARCA DEBUG] Error en FECompUltimoAutorizado:", error);
+      throw new Error(`Error en FECompUltimoAutorizado: ${error.message}`);
+    }
   }
 
   /**
@@ -353,17 +959,70 @@ export class ArcaService {
     }
 
     try {
-      // Authenticate with WSAA
-      const authToken = await this.authenticateWSAA(config);
+      // Check if we have a valid token in DB first
+      let authToken: string | null = null;
+
+      if (config.wsaaToken && config.wsaaSign && config.wsaaExpiration) {
+        const now = new Date();
+        const expiration = new Date(config.wsaaExpiration);
+        if (now < expiration) {
+          // Token still valid, use it
+          console.log(
+            "[ARCA DEBUG] Usando token existente de la DB, expira:",
+            expiration
+          );
+          authToken = JSON.stringify({
+            token: config.wsaaToken,
+            sign: config.wsaaSign,
+          });
+        }
+      }
+
+      // If no valid token, authenticate with WSAA
+      if (!authToken) {
+        console.log("[ARCA DEBUG] No hay token válido, solicitando nuevo...");
+        authToken = await this.authenticateWSAA(config, undefined, userId);
+
+        // If we got EXISTING_VALID_TOKEN, try to get from DB again
+        if (authToken) {
+          const parsed = JSON.parse(authToken);
+          if (parsed.token === "EXISTING_VALID_TOKEN") {
+            // Reload config to get the actual token
+            const refreshedConfig = await this.getConfig(userId);
+            if (refreshedConfig?.wsaaToken && refreshedConfig?.wsaaSign) {
+              authToken = JSON.stringify({
+                token: refreshedConfig.wsaaToken,
+                sign: refreshedConfig.wsaaSign,
+              });
+              console.log(
+                "[ARCA DEBUG] Token recuperado de DB después de refresh"
+              );
+            } else {
+              throw new Error(
+                "AFIP indica que ya existe un token válido pero no lo tenemos guardado. Por favor, espere unos minutos e intente nuevamente."
+              );
+            }
+          }
+        }
+      }
+
       if (!authToken) {
         throw new Error("No se pudo autenticar con WSAA");
       }
 
       // Get next invoice number
-      const numero = await this.getNextInvoiceNumber(userId, invoice.tipoComprobante);
+      const numero = await this.getNextInvoiceNumber(
+        userId,
+        invoice.tipoComprobante
+      );
 
       // Build and send WSFE request
-      const wsfeResult = await this.callWSFE(config, authToken, invoice, numero);
+      const wsfeResult = await this.callWSFE(
+        config,
+        authToken,
+        invoice,
+        numero
+      );
 
       if (wsfeResult.success) {
         // Update invoice with CAE
@@ -422,7 +1081,8 @@ export class ArcaService {
   ): Promise<AuthorizationResult> {
     const urls = this.getUrls();
     const auth = JSON.parse(authToken);
-    const cbteCode = COMPROBANTE_CODES[invoice.tipoComprobante as ArcaInvoiceType];
+    const cbteCode =
+      COMPROBANTE_CODES[invoice.tipoComprobante as ArcaInvoiceType];
 
     // Format dates for AFIP (YYYYMMDD)
     const formatAFIPDate = (d: Date | null) => {
@@ -454,7 +1114,12 @@ export class ArcaService {
           <ar:FECAEDetRequest>
             <ar:Concepto>${invoice.conceptoTipo}</ar:Concepto>
             <ar:DocTipo>${invoice.receptorCuit ? 80 : 99}</ar:DocTipo>
-            <ar:DocNro>${invoice.receptorCuit?.replace(/-/g, "") || 0}</ar:DocNro>
+            <ar:DocNro>${
+              invoice.receptorCuit?.replace(/-/g, "") || 0
+            }</ar:DocNro>
+            <ar:CondicionIVAReceptorId>${
+              invoice.receptorCondicionIva || 5
+            }</ar:CondicionIVAReceptorId>
             <ar:CbteDesde>${numero}</ar:CbteDesde>
             <ar:CbteHasta>${numero}</ar:CbteHasta>
             <ar:CbteFch>${today}</ar:CbteFch>
@@ -464,11 +1129,21 @@ export class ArcaService {
             <ar:ImpOpEx>0</ar:ImpOpEx>
             <ar:ImpIVA>0</ar:ImpIVA>
             <ar:ImpTrib>0</ar:ImpTrib>
-            ${invoice.conceptoTipo !== 1 ? `
-            <ar:FchServDesde>${formatAFIPDate(invoice.periodoDesde) || today}</ar:FchServDesde>
-            <ar:FchServHasta>${formatAFIPDate(invoice.periodoHasta) || today}</ar:FchServHasta>
-            <ar:FchVtoPago>${formatAFIPDate(invoice.vencimientoPago) || today}</ar:FchVtoPago>
-            ` : ""}
+            ${
+              invoice.conceptoTipo !== 1
+                ? `
+            <ar:FchServDesde>${
+              formatAFIPDate(invoice.periodoDesde) || today
+            }</ar:FchServDesde>
+            <ar:FchServHasta>${
+              formatAFIPDate(invoice.periodoHasta) || today
+            }</ar:FchServHasta>
+            <ar:FchVtoPago>${
+              formatAFIPDate(invoice.vencimientoPago) || today
+            }</ar:FchVtoPago>
+            `
+                : ""
+            }
             <ar:MonId>PES</ar:MonId>
             <ar:MonCotiz>1</ar:MonCotiz>
           </ar:FECAEDetRequest>
@@ -489,6 +1164,8 @@ export class ArcaService {
       });
 
       const responseText = await response.text();
+      console.log("[ARCA DEBUG] WSFE Response status:", response.status);
+      console.log("[ARCA DEBUG] WSFE Response:", responseText);
       return this.parseWSFEResponse(responseText, numero);
     } catch (error: any) {
       return {
@@ -502,7 +1179,10 @@ export class ArcaService {
   /**
    * Parse WSFE response
    */
-  private parseWSFEResponse(response: string, numero: number): AuthorizationResult {
+  private parseWSFEResponse(
+    response: string,
+    numero: number
+  ): AuthorizationResult {
     // Check for CAE
     const caeMatch = response.match(/<CAE>(\d+)<\/CAE>/);
     const caeVtoMatch = response.match(/<CAEFchVto>(\d{8})<\/CAEFchVto>/);
@@ -525,7 +1205,9 @@ export class ArcaService {
     }
 
     // Check for errors
-    const errorMatch = response.match(/<Err>[\s\S]*?<Code>(\d+)<\/Code>[\s\S]*?<Msg>([^<]+)<\/Msg>/);
+    const errorMatch = response.match(
+      /<Err>[\s\S]*?<Code>(\d+)<\/Code>[\s\S]*?<Msg>([^<]+)<\/Msg>/
+    );
     if (errorMatch) {
       return {
         success: false,
@@ -535,7 +1217,9 @@ export class ArcaService {
     }
 
     // Check for observations
-    const obsMatch = response.match(/<Obs>[\s\S]*?<Code>(\d+)<\/Code>[\s\S]*?<Msg>([^<]+)<\/Msg>/);
+    const obsMatch = response.match(
+      /<Obs>[\s\S]*?<Code>(\d+)<\/Code>[\s\S]*?<Msg>([^<]+)<\/Msg>/
+    );
     if (obsMatch) {
       return {
         success: false,
@@ -557,7 +1241,11 @@ export class ArcaService {
   async cancelInvoice(
     userId: number,
     originalInvoiceId: number
-  ): Promise<{ success: boolean; creditNoteId?: number; errorMessage?: string }> {
+  ): Promise<{
+    success: boolean;
+    creditNoteId?: number;
+    errorMessage?: string;
+  }> {
     const original = await prisma.arcaInvoice.findUnique({
       where: { id: originalInvoiceId },
     });
@@ -567,7 +1255,10 @@ export class ArcaService {
     }
 
     if (original.status !== "authorized") {
-      return { success: false, errorMessage: "Solo se pueden anular facturas autorizadas" };
+      return {
+        success: false,
+        errorMessage: "Solo se pueden anular facturas autorizadas",
+      };
     }
 
     // Create credit note
@@ -720,7 +1411,10 @@ export class ArcaService {
   private buildCSRInfo(subject: string, privateKey: string): string {
     // Extract public key from private key
     const publicKey = crypto.createPublicKey(privateKey);
-    const publicKeyPem = publicKey.export({ type: "spki", format: "pem" }) as string;
+    const publicKeyPem = publicKey.export({
+      type: "spki",
+      format: "pem",
+    }) as string;
 
     // For AFIP, they actually expect you to generate the CSR using OpenSSL
     // or a similar tool. This method provides the necessary information
@@ -753,7 +1447,9 @@ ${publicKeyPem}
    */
   private formatAsPEM(data: string, label: string): string {
     const lines = data.match(/.{1,64}/g) || [];
-    return `-----BEGIN ${label}-----\n${lines.join("\n")}\n-----END ${label}-----`;
+    return `-----BEGIN ${label}-----\n${lines.join(
+      "\n"
+    )}\n-----END ${label}-----`;
   }
 
   /**
@@ -802,7 +1498,9 @@ ${publicKeyPem}
       });
 
       // Provide OpenSSL command to generate CSR
-      const safeRazonSocial = data.razonSocial.replace(/"/g, '\\"').substring(0, 64);
+      const safeRazonSocial = data.razonSocial
+        .replace(/"/g, '\\"')
+        .substring(0, 64);
       const opensslCommand = `openssl req -new -key private.key -out request.csr -subj "/C=AR/O=${safeRazonSocial}/serialNumber=CUIT ${cuitClean}/CN=${safeRazonSocial}"`;
 
       return {
@@ -816,6 +1514,342 @@ ${publicKeyPem}
         errorMessage: `Error: ${error.message}`,
       };
     }
+  }
+
+  /**
+   * Query invoice from AFIP (FECompConsultar)
+   * Used to sync local invoices with AFIP records
+   */
+  async consultInvoice(
+    userId: number,
+    tipoComprobante: ArcaInvoiceType,
+    numero: number
+  ): Promise<{
+    success: boolean;
+    invoice?: {
+      numero: number;
+      tipoComprobante: number;
+      puntoVenta: number;
+      fechaEmision: string;
+      docTipo: number;
+      docNro: string;
+      importeTotal: number;
+      importeNeto: number;
+      cae: string;
+      caeVencimiento: string;
+      resultado: string;
+    };
+    errorMessage?: string;
+  }> {
+    const config = await this.getConfig(userId);
+    if (!config) {
+      return { success: false, errorMessage: "No hay configuración ARCA" };
+    }
+
+    // Get valid token
+    let authToken = await this.getValidToken(userId, config);
+    if (!authToken) {
+      return { success: false, errorMessage: "No se pudo obtener token de autenticación" };
+    }
+
+    const urls = this.getUrls();
+    const auth = JSON.parse(authToken);
+    const cbteCode = COMPROBANTE_CODES[tipoComprobante];
+
+    const soapRequest = `<?xml version="1.0" encoding="UTF-8"?>
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ar="http://ar.gov.afip.dif.FEV1/">
+  <soapenv:Header/>
+  <soapenv:Body>
+    <ar:FECompConsultar>
+      <ar:Auth>
+        <ar:Token>${auth.token}</ar:Token>
+        <ar:Sign>${auth.sign}</ar:Sign>
+        <ar:Cuit>${config.cuit.replace(/-/g, "")}</ar:Cuit>
+      </ar:Auth>
+      <ar:FeCompConsReq>
+        <ar:CbteTipo>${cbteCode}</ar:CbteTipo>
+        <ar:CbteNro>${numero}</ar:CbteNro>
+        <ar:PtoVta>${config.puntoVenta}</ar:PtoVta>
+      </ar:FeCompConsReq>
+    </ar:FECompConsultar>
+  </soapenv:Body>
+</soapenv:Envelope>`;
+
+    try {
+      const response = await fetch(urls.wsfe, {
+        method: "POST",
+        headers: {
+          "Content-Type": "text/xml; charset=utf-8",
+          SOAPAction: "http://ar.gov.afip.dif.FEV1/FECompConsultar",
+        },
+        body: soapRequest,
+      });
+
+      const responseText = await response.text();
+      console.log("[ARCA DEBUG] FECompConsultar Response:", responseText.substring(0, 1000));
+
+      // Parse response
+      const resultadoMatch = responseText.match(/<Resultado>([^<]+)<\/Resultado>/);
+      if (!resultadoMatch || resultadoMatch[1] !== "A") {
+        const errMatch = responseText.match(/<Err>[\s\S]*?<Code>(\d+)<\/Code>[\s\S]*?<Msg>([^<]+)<\/Msg>/);
+        if (errMatch) {
+          return { success: false, errorMessage: `Error ${errMatch[1]}: ${errMatch[2]}` };
+        }
+        return { success: false, errorMessage: "Comprobante no encontrado en AFIP" };
+      }
+
+      // Extract invoice data
+      const extractValue = (tag: string) => {
+        const match = responseText.match(new RegExp(`<${tag}>([^<]*)</${tag}>`));
+        return match ? match[1] : "";
+      };
+
+      return {
+        success: true,
+        invoice: {
+          numero: parseInt(extractValue("CbteDesde"), 10),
+          tipoComprobante: parseInt(extractValue("CbteTipo"), 10),
+          puntoVenta: parseInt(extractValue("PtoVta"), 10),
+          fechaEmision: extractValue("CbteFch"),
+          docTipo: parseInt(extractValue("DocTipo"), 10),
+          docNro: extractValue("DocNro"),
+          importeTotal: parseFloat(extractValue("ImpTotal")),
+          importeNeto: parseFloat(extractValue("ImpNeto")),
+          cae: extractValue("CodAutorizacion"),
+          caeVencimiento: extractValue("FchVto"),
+          resultado: extractValue("Resultado"),
+        },
+      };
+    } catch (error: any) {
+      return { success: false, errorMessage: `Error de comunicación: ${error.message}` };
+    }
+  }
+
+  /**
+   * Get valid token (from DB or request new)
+   */
+  private async getValidToken(userId: number, config: ArcaConfig): Promise<string | null> {
+    // Check if we have a valid token in DB
+    if (config.wsaaToken && config.wsaaSign && config.wsaaExpiration) {
+      const now = new Date();
+      const expiration = new Date(config.wsaaExpiration);
+      if (now < expiration) {
+        return JSON.stringify({
+          token: config.wsaaToken,
+          sign: config.wsaaSign,
+        });
+      }
+    }
+
+    // Request new token
+    const authToken = await this.authenticateWSAA(config, undefined, userId);
+    if (authToken) {
+      const parsed = JSON.parse(authToken);
+      if (parsed.token === "EXISTING_VALID_TOKEN") {
+        const refreshedConfig = await this.getConfig(userId);
+        if (refreshedConfig?.wsaaToken && refreshedConfig?.wsaaSign) {
+          return JSON.stringify({
+            token: refreshedConfig.wsaaToken,
+            sign: refreshedConfig.wsaaSign,
+          });
+        }
+      } else {
+        return authToken;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Sync all invoices with AFIP
+   * Gets the last authorized number and syncs any missing invoices
+   */
+  async syncInvoices(userId: number, tipoComprobante: ArcaInvoiceType): Promise<{
+    success: boolean;
+    synced: number;
+    errors: string[];
+    message: string;
+  }> {
+    const config = await this.getConfig(userId);
+    if (!config) {
+      return { success: false, synced: 0, errors: [], message: "No hay configuración ARCA" };
+    }
+
+    const errors: string[] = [];
+    let synced = 0;
+
+    try {
+      // Get last authorized number from AFIP
+      const lastNumber = await this.getNextInvoiceNumber(userId, tipoComprobante) - 1;
+
+      if (lastNumber <= 0) {
+        return { success: true, synced: 0, errors: [], message: "No hay comprobantes autorizados en AFIP" };
+      }
+
+      // Get local invoices that are authorized
+      const localInvoices = await prisma.arcaInvoice.findMany({
+        where: {
+          userId,
+          tipoComprobante,
+          puntoVenta: config.puntoVenta,
+          status: "authorized",
+        },
+        select: { numero: true, cae: true },
+      });
+
+      const localNumbers = new Set(localInvoices.map(inv => inv.numero));
+
+      // Find missing invoices (in AFIP but not in local DB)
+      const missingNumbers: number[] = [];
+      for (let i = 1; i <= lastNumber; i++) {
+        if (!localNumbers.has(i)) {
+          missingNumbers.push(i);
+        }
+      }
+
+      // Limit to last 100 to avoid too many requests
+      const numbersToSync = missingNumbers.slice(-100);
+
+      // Sync each missing invoice
+      for (const numero of numbersToSync) {
+        const result = await this.consultInvoice(userId, tipoComprobante, numero);
+
+        if (result.success && result.invoice) {
+          // Create or update local record
+          const existing = await prisma.arcaInvoice.findFirst({
+            where: {
+              userId,
+              tipoComprobante,
+              puntoVenta: config.puntoVenta,
+              numero,
+            },
+          });
+
+          if (!existing) {
+            // Parse AFIP date format YYYYMMDD to Date
+            const parseDateAFIP = (dateStr: string) => {
+              if (!dateStr || dateStr.length !== 8) return new Date();
+              const year = parseInt(dateStr.slice(0, 4), 10);
+              const month = parseInt(dateStr.slice(4, 6), 10) - 1;
+              const day = parseInt(dateStr.slice(6, 8), 10);
+              return new Date(year, month, day);
+            };
+
+            await prisma.arcaInvoice.create({
+              data: {
+                userId,
+                tipoComprobante,
+                puntoVenta: config.puntoVenta,
+                numero,
+                receptorNombre: "Importado de AFIP",
+                receptorCuit: result.invoice.docNro || null,
+                importeNeto: result.invoice.importeNeto,
+                importeTotal: result.invoice.importeTotal,
+                concepto: "Comprobante importado de AFIP",
+                conceptoTipo: 2,
+                cae: result.invoice.cae,
+                caeVencimiento: parseDateAFIP(result.invoice.caeVencimiento),
+                status: "authorized",
+                fechaEmision: parseDateAFIP(result.invoice.fechaEmision),
+                afipResponse: JSON.stringify(result.invoice),
+                updatedAt: new Date(),
+              },
+            });
+            synced++;
+          }
+        } else {
+          errors.push(`Comprobante ${numero}: ${result.errorMessage}`);
+        }
+
+        // Add small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+
+      return {
+        success: true,
+        synced,
+        errors,
+        message: synced > 0
+          ? `Se sincronizaron ${synced} comprobantes`
+          : "Todos los comprobantes están sincronizados",
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        synced,
+        errors: [error.message],
+        message: `Error durante la sincronización: ${error.message}`,
+      };
+    }
+  }
+
+  /**
+   * Get invoice data for PDF generation
+   */
+  async getInvoiceForPDF(userId: number, invoiceId: number): Promise<{
+    success: boolean;
+    invoice?: any;
+    config?: ArcaConfig;
+    errorMessage?: string;
+  }> {
+    const config = await this.getConfig(userId);
+    if (!config) {
+      return { success: false, errorMessage: "No hay configuración ARCA" };
+    }
+
+    const invoice = await prisma.arcaInvoice.findFirst({
+      where: { id: invoiceId, userId },
+      include: { project: true },
+    });
+
+    if (!invoice) {
+      return { success: false, errorMessage: "Factura no encontrada" };
+    }
+
+    if (invoice.status !== "authorized" || !invoice.cae) {
+      return { success: false, errorMessage: "La factura no está autorizada o no tiene CAE" };
+    }
+
+    return { success: true, invoice, config };
+  }
+
+  /**
+   * Generate QR code data for AFIP invoice
+   * According to RG 4291/2018
+   */
+  generateQRData(config: ArcaConfig, invoice: any): string {
+    const cuitClean = config.cuit.replace(/-/g, "");
+    const cbteCode = COMPROBANTE_CODES[invoice.tipoComprobante as ArcaInvoiceType];
+
+    // Format date as YYYY-MM-DD
+    const formatDate = (d: Date) => {
+      return d.toISOString().slice(0, 10);
+    };
+
+    // Build JSON for QR code (RG 4291/2018)
+    const qrData = {
+      ver: 1,
+      fecha: formatDate(invoice.fechaEmision || new Date()),
+      cuit: parseInt(cuitClean, 10),
+      ptoVta: invoice.puntoVenta,
+      tipoCmp: cbteCode,
+      nroCmp: invoice.numero,
+      importe: parseFloat(invoice.importeTotal.toString()),
+      moneda: invoice.moneda || "PES",
+      ctz: 1,
+      tipoDocRec: invoice.receptorCuit ? 80 : 99,
+      nroDocRec: invoice.receptorCuit ? parseInt(invoice.receptorCuit.replace(/-/g, ""), 10) : 0,
+      tipoCodAut: "E", // CAE
+      codAut: parseInt(invoice.cae, 10),
+    };
+
+    // Encode as base64
+    const jsonStr = JSON.stringify(qrData);
+    const base64 = Buffer.from(jsonStr).toString("base64");
+
+    // AFIP QR verification URL
+    return `https://www.afip.gob.ar/fe/qr/?p=${base64}`;
   }
 }
 

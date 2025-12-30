@@ -25,7 +25,7 @@ export default function TareasPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [pagination, setPagination] = useState<Pagination>({
     page: 1,
-    limit: 50,
+    limit: 20,
     total: 0,
     totalPages: 0,
   });
@@ -55,7 +55,7 @@ export default function TareasPage() {
       setError(null);
       try {
         const token = localStorage.getItem("admin_token");
-        const params = new URLSearchParams({ page: String(page), limit: "50" });
+        const params = new URLSearchParams({ page: String(page), limit: "20" });
         if (debouncedSearch) params.append("search", debouncedSearch);
         if (filterStatus.length > 0) {
           filterStatus.forEach((status) => params.append("status", status));

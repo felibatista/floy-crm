@@ -18,12 +18,13 @@ interface CreateInvoiceData {
   puntoVenta: number;
   receptorNombre: string;
   receptorCuit?: string;
+  receptorCondicionIva?: number | string;
   receptorDomicilio?: string;
   importeNeto: number;
   importeTotal: number;
   moneda?: string;
   concepto: string;
-  conceptoTipo?: number;
+  conceptoTipo?: number | string;
   periodoDesde?: Date;
   periodoHasta?: Date;
   vencimientoPago?: Date;
@@ -179,12 +180,13 @@ export class BillingService {
         puntoVenta: data.puntoVenta,
         receptorNombre: data.receptorNombre,
         receptorCuit: data.receptorCuit,
+        receptorCondicionIva: typeof data.receptorCondicionIva === "string" ? parseInt(data.receptorCondicionIva, 10) : (data.receptorCondicionIva || 5),
         receptorDomicilio: data.receptorDomicilio,
         importeNeto: data.importeNeto,
         importeTotal: data.importeTotal,
         moneda: data.moneda || "PES",
         concepto: data.concepto,
-        conceptoTipo: data.conceptoTipo || 2,
+        conceptoTipo: typeof data.conceptoTipo === "string" ? parseInt(data.conceptoTipo, 10) : (data.conceptoTipo || 2),
         periodoDesde: data.periodoDesde,
         periodoHasta: data.periodoHasta,
         vencimientoPago: data.vencimientoPago,

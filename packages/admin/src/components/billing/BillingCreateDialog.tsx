@@ -26,6 +26,7 @@ import {
   InvoiceFormData,
   tipoComprobanteConfig,
   conceptoTipoConfig,
+  condicionIvaReceptorConfig,
   ArcaInvoiceType,
 } from "./types";
 
@@ -146,7 +147,7 @@ export function BillingCreateDialog({
                   <SelectValue placeholder="Seleccionar proyecto" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Sin proyecto</SelectItem>
+                  <SelectItem value="none">Sin proyecto</SelectItem>
                   {projects.map((project) => (
                     <SelectItem key={project.id} value={String(project.id)}>
                       {project.name} ({project.client.name})
@@ -181,16 +182,35 @@ export function BillingCreateDialog({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="receptorDomicilio">Domicilio (opcional)</Label>
-                  <Input
-                    id="receptorDomicilio"
-                    value={formData.receptorDomicilio}
-                    onChange={(e) =>
-                      handleChange("receptorDomicilio", e.target.value)
-                    }
-                    placeholder="Dirección"
-                  />
+                  <Label htmlFor="receptorCondicionIva">Condición IVA *</Label>
+                  <Select
+                    value={formData.receptorCondicionIva}
+                    onValueChange={(value) => handleChange("receptorCondicionIva", value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(condicionIvaReceptorConfig).map(([key, label]) => (
+                        <SelectItem key={key} value={key}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="receptorDomicilio">Domicilio (opcional)</Label>
+                <Input
+                  id="receptorDomicilio"
+                  value={formData.receptorDomicilio}
+                  onChange={(e) =>
+                    handleChange("receptorDomicilio", e.target.value)
+                  }
+                  placeholder="Dirección"
+                />
               </div>
             </div>
           </div>

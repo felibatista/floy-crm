@@ -74,6 +74,7 @@ export interface InvoiceFormData {
   tipoComprobante: ArcaInvoiceType;
   receptorNombre: string;
   receptorCuit: string;
+  receptorCondicionIva: string;
   receptorDomicilio: string;
   importeNeto: string;
   importeTotal: string;
@@ -91,6 +92,7 @@ export const initialFormData: InvoiceFormData = {
   tipoComprobante: "factura_c",
   receptorNombre: "",
   receptorCuit: "",
+  receptorCondicionIva: "5",
   receptorDomicilio: "",
   importeNeto: "",
   importeTotal: "",
@@ -100,6 +102,19 @@ export const initialFormData: InvoiceFormData = {
   periodoDesde: "",
   periodoHasta: "",
   vencimientoPago: "",
+};
+
+// Condición IVA del receptor según AFIP (RG 5616)
+export const condicionIvaReceptorConfig: Record<string, string> = {
+  "1": "IVA Responsable Inscripto",
+  "4": "IVA Sujeto Exento",
+  "5": "Consumidor Final",
+  "6": "Responsable Monotributo",
+  "8": "Proveedor del Exterior",
+  "9": "Cliente del Exterior",
+  "10": "IVA Liberado - Ley 19.640",
+  "13": "Monotributista Social",
+  "15": "IVA No Alcanzado",
 };
 
 export const statusConfig: Record<ArcaInvoiceStatus, { label: string; variant: "default" | "info" | "destructive" | "outline" | "success" | "yellow" }> = {

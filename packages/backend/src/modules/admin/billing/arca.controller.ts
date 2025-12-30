@@ -1,7 +1,10 @@
 import { Request, Response } from "express";
 import { ArcaService } from "./arca.service";
 
-const arcaService = new ArcaService();
+const IS_PRODUCTION = process.env.ARCA_PRODUCTION === "true";
+const arcaService = new ArcaService(IS_PRODUCTION);
+
+console.log(`[ARCA] Ambiente: ${IS_PRODUCTION ? "PRODUCCION" : "HOMOLOGACION"}`);
 
 export class ArcaController {
   /**
@@ -121,6 +124,66 @@ export class ArcaController {
     } catch (error) {
       console.error("Error validating certificate:", error);
       res.status(500).json({ error: "Failed to validate certificate" });
+    }
+  }
+
+  /**
+   * Get token status
+   */
+  async getTokenStatus(req: Request, res: Response) {
+    try {
+      const userId = req.auth?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      const status = await arcaService.getTokenStatus(userId);
+      res.json(status);
+    } catch (error) {
+      console.error("Error getting token status:", error);
+      res.status(500).json({ error: "Failed to get token status" });
+    }
+  }
+
+  /**
+   * Get full token data (for editing)
+   */
+  async getTokenData(req: Request, res: Response) {
+    try {
+      const userId = req.auth?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      const data = await arcaService.getTokenData(userId);
+      res.json(data);
+    } catch (error) {
+      console.error("Error getting token data:", error);
+      res.status(500).json({ error: "Failed to get token data" });
+    }
+  }
+
+  /**
+   * Update token manually
+   */
+  async updateToken(req: Request, res: Response) {
+    try {
+      const userId = req.auth?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      const { token, sign, expiration } = req.body;
+
+      if (!token || !sign) {
+        return res.status(400).json({ error: "Token and Sign are required" });
+      }
+
+      await arcaService.updateToken(userId, token, sign, expiration ? new Date(expiration) : undefined);
+      res.json({ success: true, message: "Token actualizado correctamente" });
+    } catch (error) {
+      console.error("Error updating token:", error);
+      res.status(500).json({ error: "Failed to update token" });
     }
   }
 
@@ -260,6 +323,96 @@ export class ArcaController {
     } catch (error) {
       console.error("Error generating certificate:", error);
       res.status(500).json({ error: "Failed to generate certificate" });
+    }
+  }
+
+  /**
+   * Consult a specific invoice from AFIP
+   */
+  async consultInvoice(req: Request, res: Response) {
+    try {
+      const userId = req.auth?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      const { tipo, numero } = req.query;
+      if (!tipo || !numero) {
+        return res.status(400).json({ error: "tipo and numero are required" });
+      }
+
+      const result = await arcaService.consultInvoice(
+        userId,
+        tipo as any,
+        parseInt(numero as string, 10)
+      );
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error consulting invoice:", error);
+      res.status(500).json({ error: "Failed to consult invoice" });
+    }
+  }
+
+  /**
+   * Sync invoices with AFIP
+   */
+  async syncInvoices(req: Request, res: Response) {
+    try {
+      const userId = req.auth?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      const tipo = (req.query.tipo as any) || "factura_c";
+      const result = await arcaService.syncInvoices(userId, tipo);
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error syncing invoices:", error);
+      res.status(500).json({ error: "Failed to sync invoices" });
+    }
+  }
+
+  /**
+   * Get invoice data for PDF generation
+   */
+  async getInvoicePDFData(req: Request, res: Response) {
+    try {
+      const userId = req.auth?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      const invoiceId = parseInt(req.params.invoiceId);
+      if (isNaN(invoiceId)) {
+        return res.status(400).json({ error: "Invalid invoice ID" });
+      }
+
+      const result = await arcaService.getInvoiceForPDF(userId, invoiceId);
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.errorMessage });
+      }
+
+      // Generate QR URL
+      const qrUrl = arcaService.generateQRData(result.config!, result.invoice);
+
+      res.json({
+        success: true,
+        invoice: result.invoice,
+        config: {
+          cuit: result.config!.cuit,
+          razonSocial: result.config!.razonSocial,
+          domicilioFiscal: result.config!.domicilioFiscal,
+          condicionIva: result.config!.condicionIva,
+          puntoVenta: result.config!.puntoVenta,
+        },
+        qrUrl,
+      });
+    } catch (error) {
+      console.error("Error getting invoice PDF data:", error);
+      res.status(500).json({ error: "Failed to get invoice PDF data" });
     }
   }
 }

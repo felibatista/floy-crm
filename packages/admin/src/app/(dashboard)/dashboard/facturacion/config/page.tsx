@@ -27,6 +27,8 @@ import {
   Key,
   Copy,
   Download,
+  Clock,
+  RefreshCw,
 } from "lucide-react";
 
 interface ArcaConfig {
@@ -71,10 +73,91 @@ export default function ArcaConfigPage() {
   const [generatedKey, setGeneratedKey] = useState<string | null>(null);
   const [opensslCommand, setOpensslCommand] = useState<string | null>(null);
 
+  // Token data
+  const [tokenData, setTokenData] = useState<{
+    token: string | null;
+    sign: string | null;
+    expiration: string | null;
+    isValid: boolean;
+  } | null>(null);
+  const [loadingToken, setLoadingToken] = useState(false);
+  const [savingToken, setSavingToken] = useState(false);
+  const [editToken, setEditToken] = useState("");
+  const [editSign, setEditSign] = useState("");
+  const [editExpiration, setEditExpiration] = useState("");
+
   useEffect(() => {
     document.title = "Configuración ARCA | Acentus";
     fetchConfig();
+    fetchTokenData();
   }, []);
+
+  const fetchTokenData = async () => {
+    setLoadingToken(true);
+    try {
+      const token = localStorage.getItem("admin_token");
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/admin/arca/token/data`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (res.ok) {
+        const data = await res.json();
+        setTokenData(data);
+        setEditToken(data.token || "");
+        setEditSign(data.sign || "");
+        setEditExpiration(data.expiration ? data.expiration.slice(0, 16) : "");
+      }
+    } catch (err) {
+      console.error("Error fetching token data:", err);
+    } finally {
+      setLoadingToken(false);
+    }
+  };
+
+  const handleSaveToken = async () => {
+    if (!editToken || !editSign) {
+      setError("Token y Sign son requeridos");
+      return;
+    }
+
+    setSavingToken(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const token = localStorage.getItem("admin_token");
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/admin/arca/token`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            token: editToken,
+            sign: editSign,
+            expiration: editExpiration ? new Date(editExpiration).toISOString() : undefined,
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Error al guardar token");
+      }
+
+      setSuccess("Token actualizado correctamente");
+      fetchTokenData();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSavingToken(false);
+    }
+  };
 
   const fetchConfig = async () => {
     setLoading(true);
@@ -629,6 +712,100 @@ export default function ArcaConfigPage() {
                   </Button>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Token WSAA */}
+          <Card className="md:col-span-2">
+            <CardHeader>
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                Token WSAA
+              </CardTitle>
+              <CardDescription>
+                Token de autenticación actual para los Web Services de AFIP
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {loadingToken ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className={`px-3 py-1 rounded-full text-sm ${
+                      tokenData?.isValid
+                        ? "bg-green-500/20 text-green-600"
+                        : "bg-destructive/20 text-destructive"
+                    }`}>
+                      {tokenData?.isValid ? "Token Válido" : "Token Expirado o No Existe"}
+                    </div>
+                    {tokenData?.expiration && (
+                      <span className="text-sm text-muted-foreground">
+                        Expira: {new Date(tokenData.expiration).toLocaleString()}
+                      </span>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={fetchTokenData}
+                      disabled={loadingToken}
+                    >
+                      <RefreshCw className={`h-4 w-4 ${loadingToken ? "animate-spin" : ""}`} />
+                    </Button>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="wsaaToken">Token</Label>
+                      <Textarea
+                        id="wsaaToken"
+                        value={editToken}
+                        onChange={(e) => setEditToken(e.target.value)}
+                        placeholder="Token de WSAA..."
+                        rows={4}
+                        className="font-mono text-xs"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="wsaaSign">Sign</Label>
+                      <Textarea
+                        id="wsaaSign"
+                        value={editSign}
+                        onChange={(e) => setEditSign(e.target.value)}
+                        placeholder="Sign de WSAA..."
+                        rows={4}
+                        className="font-mono text-xs"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="wsaaExpiration">Expiración</Label>
+                      <Input
+                        id="wsaaExpiration"
+                        type="datetime-local"
+                        value={editExpiration}
+                        onChange={(e) => setEditExpiration(e.target.value)}
+                      />
+                    </div>
+
+                    <Button
+                      onClick={handleSaveToken}
+                      disabled={savingToken || !editToken || !editSign}
+                      className="w-full"
+                    >
+                      {savingToken ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4 mr-2" />
+                      )}
+                      Guardar Token
+                    </Button>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
 
