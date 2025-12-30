@@ -206,7 +206,7 @@ export default function GitHubPage() {
               <div className="flex items-center justify-between p-3 border rounded-lg">
                 <div>
                   <p className="font-medium">Commits vinculados</p>
-                  <p className="text-sm text-muted-    foreground">
+                  <p className="text-sm text-muted-foreground">
                     {stats.totalCommits}
                   </p>
                 </div>
