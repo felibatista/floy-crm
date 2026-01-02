@@ -12,7 +12,9 @@
       "Bash(npx prisma db pull:*)",
       "Bash(find:*)",
       "Bash(npx tsc:*)",
-      "Bash(npx prisma db push:*)"
+      "Bash(npx prisma db push:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(del \"c:\\\\Users\\\\Usuario\\\\Desktop\\\\data\\\\floy-crm\\\\packages\\\\backend\\\\src\\\\modules\\\\admin\\\\billing\\\\templates\\\\factura.html\")"
     ]
   }
 }

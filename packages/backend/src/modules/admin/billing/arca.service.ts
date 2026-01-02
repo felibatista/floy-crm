@@ -2,6 +2,21 @@ import { prisma } from "../../../lib/prisma";
 import { ArcaInvoiceType } from "@prisma/client";
 import * as crypto from "crypto";
 import * as forge from "node-forge";
+import axios from "axios";
+import * as https from "https";
+
+// AFIP uses weak DH keys that Node.js rejects by default (ERR_SSL_DH_KEY_TOO_SMALL)
+// This is equivalent to Python's: requests.packages.urllib3.contrib.pyopenssl.DEFAULT_SSL_CIPHER_LIST += 'HIGH:!DH:!aNULL'
+const afipHttpsAgent = new https.Agent({
+  ciphers: "DEFAULT:!DH",
+  rejectUnauthorized: true,
+});
+
+// Axios instance configured for AFIP
+const afipAxios = axios.create({
+  httpsAgent: afipHttpsAgent,
+  timeout: 30000,
+});
 
 // ARCA/AFIP Webservice URLs
 const ARCA_URLS = {
@@ -354,16 +369,14 @@ export class ArcaService {
       console.log("[ARCA DEBUG] Sending request to WSAA:", urls.wsaa);
       console.log("[ARCA DEBUG] CMS length:", cms.length);
 
-      const response = await fetch(urls.wsaa, {
-        method: "POST",
+      const response = await afipAxios.post(urls.wsaa, soapRequest, {
         headers: {
           "Content-Type": "text/xml; charset=utf-8",
           SOAPAction: "",
         },
-        body: soapRequest,
       });
 
-      const responseText = await response.text();
+      const responseText = response.data;
       console.log("[ARCA DEBUG] WSAA Response status:", response.status);
       console.log(
         "[ARCA DEBUG] WSAA Response:",
@@ -884,15 +897,13 @@ export class ArcaService {
     console.log("[ARCA DEBUG] SOAP Request:\n", soapRequest);
 
     try {
-      const response = await fetch(urls.wsfe, {
-        method: "POST",
+      const response = await afipAxios.post(urls.wsfe, soapRequest, {
         headers: {
           "Content-Type": "text/xml; charset=utf-8",
           SOAPAction: "http://ar.gov.afip.dif.FEV1/FECompUltimoAutorizado",
         },
-        body: soapRequest,
       });
-      const responseText = await response.text();
+      const responseText = response.data;
       console.log("[ARCA DEBUG] FECompUltimoAutorizado HTTP status:", response.status);
       console.log("[ARCA DEBUG] FECompUltimoAutorizado response (first 1000 chars):\n", responseText.substring(0, 1000));
       // Buscar <CbteNro> en la respuesta
@@ -1154,16 +1165,14 @@ export class ArcaService {
 </soapenv:Envelope>`;
 
     try {
-      const response = await fetch(urls.wsfe, {
-        method: "POST",
+      const response = await afipAxios.post(urls.wsfe, soapRequest, {
         headers: {
           "Content-Type": "text/xml; charset=utf-8",
           SOAPAction: "http://ar.gov.afip.dif.FEV1/FECAESolicitar",
         },
-        body: soapRequest,
       });
 
-      const responseText = await response.text();
+      const responseText = response.data;
       console.log("[ARCA DEBUG] WSFE Response status:", response.status);
       console.log("[ARCA DEBUG] WSFE Response:", responseText);
       return this.parseWSFEResponse(responseText, numero);
@@ -1576,16 +1585,14 @@ ${publicKeyPem}
 </soapenv:Envelope>`;
 
     try {
-      const response = await fetch(urls.wsfe, {
-        method: "POST",
+      const response = await afipAxios.post(urls.wsfe, soapRequest, {
         headers: {
           "Content-Type": "text/xml; charset=utf-8",
           SOAPAction: "http://ar.gov.afip.dif.FEV1/FECompConsultar",
         },
-        body: soapRequest,
       });
 
-      const responseText = await response.text();
+      const responseText = response.data;
       console.log("[ARCA DEBUG] FECompConsultar Response:", responseText.substring(0, 1000));
 
       // Parse response

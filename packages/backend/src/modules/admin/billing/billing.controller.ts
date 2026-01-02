@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import { BillingService } from "./billing.service";
 import { ArcaInvoiceStatus } from "@prisma/client";
+import { arcaService } from "./arca.service";
+import { pdfService } from "./pdf.service";
 
 const billingService = new BillingService();
 
@@ -109,12 +111,19 @@ export class BillingController {
         });
       }
 
+      // Get punto de venta from ARCA config if not provided
+      let puntoVentaFinal = puntoVenta ? parseInt(puntoVenta) : undefined;
+      if (!puntoVentaFinal) {
+        const arcaConfig = await arcaService.getConfig(userId);
+        puntoVentaFinal = arcaConfig?.puntoVenta || 1;
+      }
+
       const invoice = await billingService.create({
         userId,
         projectId: projectId ? parseInt(projectId) : undefined,
         paymentId: paymentId ? parseInt(paymentId) : undefined,
         tipoComprobante,
-        puntoVenta: puntoVenta || 1,
+        puntoVenta: puntoVentaFinal,
         receptorNombre,
         receptorCuit,
         receptorDomicilio,
@@ -266,5 +275,107 @@ export class BillingController {
       console.error("Error fetching billing stats:", error);
       res.status(500).json({ error: "Failed to fetch billing stats" });
     }
+  }
+
+  async downloadPdf(req: Request, res: Response) {
+    try {
+      const userId = req.auth?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid invoice ID" });
+      }
+
+      // Get invoice data
+      const invoice = await billingService.getById(id);
+      if (!invoice) {
+        return res.status(404).json({ error: "Invoice not found" });
+      }
+
+      // Only authorized invoices can be downloaded as PDF
+      if (invoice.status !== "authorized" || !invoice.cae) {
+        return res.status(400).json({
+          error: "Solo se pueden descargar facturas autorizadas con CAE",
+        });
+      }
+
+      // Get ARCA config for emitter data
+      const arcaConfig = await arcaService.getConfig(userId);
+      if (!arcaConfig) {
+        return res.status(400).json({
+          error: "No hay configuración ARCA para este usuario",
+        });
+      }
+
+      // Generate QR code URL
+      const qrCodeUrl = arcaService.generateQRData(arcaConfig, invoice);
+      // Use Google Charts API for QR (simple approach)
+      const qrImageUrl = `https://chart.googleapis.com/chart?cht=qr&chs=150x150&chl=${encodeURIComponent(qrCodeUrl)}`;
+
+      // Prepare invoice data for PDF
+      const pdfData = {
+        // Emisor
+        razonSocial: arcaConfig.razonSocial,
+        domicilioFiscal: arcaConfig.domicilioFiscal || "",
+        cuitEmisor: arcaConfig.cuit,
+        condicionIva: this.getCondicionIvaTexto(arcaConfig.condicionIva),
+
+        // Comprobante
+        tipoComprobante: invoice.tipoComprobante,
+        puntoVenta: invoice.puntoVenta,
+        numero: invoice.numero!,
+        fechaEmision: invoice.fechaEmision || new Date(),
+
+        // Receptor
+        receptorNombre: invoice.receptorNombre,
+        receptorCuit: invoice.receptorCuit || undefined,
+        receptorCondicionIva: invoice.receptorCondicionIva || 5,
+        receptorDomicilio: invoice.receptorDomicilio || undefined,
+
+        // Importes
+        importeNeto: Number(invoice.importeNeto),
+        importeTotal: Number(invoice.importeTotal),
+        moneda: invoice.moneda || "PES",
+
+        // Concepto
+        concepto: invoice.concepto,
+        conceptoTipo: invoice.conceptoTipo,
+        periodoDesde: invoice.periodoDesde || undefined,
+        periodoHasta: invoice.periodoHasta || undefined,
+        vencimientoPago: invoice.vencimientoPago || undefined,
+
+        // CAE
+        cae: invoice.cae,
+        caeVencimiento: invoice.caeVencimiento!,
+
+        // QR
+        qrCodeUrl: qrImageUrl,
+      };
+
+      // Generate PDF
+      const pdfBuffer = await pdfService.generatePdf(pdfData);
+      const filename = pdfService.generateFilename(pdfData);
+
+      // Send PDF
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.setHeader("Content-Length", pdfBuffer.length);
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      res.status(500).json({ error: "Failed to generate PDF" });
+    }
+  }
+
+  private getCondicionIvaTexto(condicion: string): string {
+    const map: Record<string, string> = {
+      monotributo: "Responsable Monotributo",
+      responsable_inscripto: "IVA Responsable Inscripto",
+      exento: "IVA Sujeto Exento",
+    };
+    return map[condicion] || condicion;
   }
 }

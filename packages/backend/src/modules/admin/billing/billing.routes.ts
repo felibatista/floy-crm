@@ -25,6 +25,9 @@ router.get(
   billingController.getByPaymentId.bind(billingController)
 );
 
+// Download invoice PDF
+router.get("/:id/pdf", verifyAdminToken, billingController.downloadPdf.bind(billingController));
+
 // Get single invoice by ID
 router.get("/:id", verifyAdminToken, billingController.getById.bind(billingController));
 
