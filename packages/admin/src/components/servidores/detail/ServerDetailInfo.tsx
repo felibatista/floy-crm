@@ -127,9 +127,6 @@ export function ServerDetailInfo({ project, projectUuid }: ServerDetailInfoProps
       <div className="flex items-start justify-between mb-6">
         <div className="flex-1">
           <h1 className="text-2xl font-bold mb-1">{project?.name}</h1>
-          <p className="text-muted-foreground text-sm mb-2">
-            {project?.description || "Sin descripción"}
-          </p>
           <div className="flex items-center gap-2">
             <span className="font-mono text-xs text-muted-foreground">
               {project?.uuid}
@@ -147,26 +144,6 @@ export function ServerDetailInfo({ project, projectUuid }: ServerDetailInfoProps
               )}
             </Button>
           </div>
-        </div>
-      </div>
-
-      {/* Resumen de recursos */}
-      <div className="grid md:grid-cols-4 gap-x-12 gap-y-3 mb-6 text-xs">
-        <div className="flex items-center">
-          <span className="w-32 text-muted-foreground">Entornos</span>
-          <span className="font-medium">{project?.environments.length || 0}</span>
-        </div>
-        <div className="flex items-center">
-          <span className="w-32 text-muted-foreground">Aplicaciones</span>
-          <span className="font-medium">{totalApps}</span>
-        </div>
-        <div className="flex items-center">
-          <span className="w-32 text-muted-foreground">Bases de datos</span>
-          <span className="font-medium">{totalDatabases}</span>
-        </div>
-        <div className="flex items-center">
-          <span className="w-32 text-muted-foreground">Servicios</span>
-          <span className="font-medium">{totalServices}</span>
         </div>
       </div>
 

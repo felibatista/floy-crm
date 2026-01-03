@@ -10,7 +10,6 @@ import {
   BillingFilters,
   BillingPagination,
   BillingCreateDialog,
-  BillingStatsCards,
   ArcaInvoice,
   Pagination,
   BillingStats,
@@ -108,7 +107,8 @@ export default function FacturacionPage() {
   }, [fetchInvoices, fetchStats]);
 
   const handleCreate = async () => {
-    if (!formData.receptorNombre || !formData.importeNeto || !formData.concepto) return;
+    if (!formData.receptorNombre || !formData.importeNeto || !formData.concepto)
+      return;
 
     setCreating(true);
     try {
@@ -123,7 +123,10 @@ export default function FacturacionPage() {
           },
           body: JSON.stringify({
             ...formData,
-            projectId: formData.projectId && formData.projectId !== "none" ? formData.projectId : undefined,
+            projectId:
+              formData.projectId && formData.projectId !== "none"
+                ? formData.projectId
+                : undefined,
             paymentId: formData.paymentId || undefined,
           }),
         }
@@ -191,9 +194,7 @@ export default function FacturacionPage() {
         </div>
       )}
 
-      <BillingStatsCards stats={stats} loading={loadingStats} />
-
-      <div className="flex items-center justify-between p-2 border-t">
+      <div className="flex items-center justify-between p-2">
         <div className="flex items-center gap-2">
           <BillingCreateDialog
             open={dialogOpen}
